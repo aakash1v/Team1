@@ -1,6 +1,6 @@
 from flask import Flask, request, jsonify, render_template
 from flask_sqlalchemy import SQLAlchemy
-# import bcrypt
+
 
 # Flask app setup
 app = Flask(__name__)
@@ -19,9 +19,7 @@ class Users(db.Model):
     Email = db.Column(db.String(100), unique=True, nullable=False)
     Name = db.Column(db.String(100), nullable=False)
     DOB = db.Column(db.Date, nullable=True)
-# Hash function for passwords
-# def hash_password(password):
-#     return bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+
 
 @app.route('/')
 def home():
@@ -31,6 +29,8 @@ def home():
 def add_user_form():
     return render_template('add_user.html')
 
+
+
 # Route to insert a user record
 @app.route('/add_user', methods=['POST'])
 def add_user():
@@ -38,8 +38,7 @@ def add_user():
     email = request.form['email']
     name = request.form['name']
     password = request.form['password']
-    # Hash the password before saving
-    # hashed_password = hash_password(password)
+
 
     # Create a new user object
     new_user = Users(UserName=username, Password=password, Email=email, Name=name)
