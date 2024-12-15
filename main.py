@@ -1,5 +1,6 @@
 from flask import Flask, request, jsonify, render_template
 from flask_sqlalchemy import SQLAlchemy
+from datetime import datetime
 
 
 # Flask app setup
@@ -27,8 +28,7 @@ def home():
 
 @app.route('/add_user_form')
 def add_user_form():
-    return render_template('add_user.html')
-
+    return render_template('signup.html')
 
 
 # Route to insert a user record
@@ -38,10 +38,15 @@ def add_user():
     email = request.form['email']
     name = request.form['name']
     password = request.form['password']
-
+    dob = request.form['dob']
+    try:
+        # Convert the date string to a datetime.date object
+        dob = datetime.strptime(dob, '%Y-%m-%d').date()
+    except ValueError:
+        return jsonify({'error': 'Invalid date format. Use YYYY-MM-DD.'}), 400
 
     # Create a new user object
-    new_user = Users(UserName=username, Password=password, Email=email, Name=name)
+    new_user = Users(UserName=username, Password=password, Email=email, Name=name, DOB=dob)
 
     # Add and commit the new user to the database
     try:
@@ -51,6 +56,25 @@ def add_user():
     except Exception as e:
         db.session.rollback()
         return jsonify({'error': str(e)}), 400
+
+
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    if request.method == 'POST':
+        username = request.form['username']
+        password = request.form['password']
+        
+        # Query the database to find a user by username
+        user = Users.query.filter_by(UserName=username).first()
+        
+        if user and user.Password == password:
+            return jsonify({'message': 'Successfuly logged in to ur account!'}), 201
+        else:
+            return jsonify({'message': 'Make sure the credentials are correct'}), 201
+
+
+    return render_template('login.html')
+
 
 # Initialize database tables
 with app.app_context():
