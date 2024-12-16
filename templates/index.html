@@ -110,15 +110,6 @@
     <h1>Welcome to the Flask App</h1>
     <p>This is the home page.</p>
 
-    <!-- Display flash messages -->
-    {% with messages = get_flashed_messages(with_categories=True) %} {% if
-    messages %}
-    <div id="flash-messages">
-      {% for category, message in messages %}
-      <div class="alert alert-{{ category }}">{{ message }}</div>
-      {% endfor %}
-    </div>
-    {% endif %} {% endwith %} 
 
     <a href="/add_user_form">Add a User</a>
     <a href="/login">Login</a>
