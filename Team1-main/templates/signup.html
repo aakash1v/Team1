@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Add User</title>
+    <link rel="stylesheet" href="../static/signup.css">
+</head>
+<body>
+    <form action="/add_user" method="POST" id="userForm">
+        <h1>Add a New User</h1>
+        <label for="username">Username:</label><br>
+        <input type="text" id="username" name="username" required><br><br>
+
+        <label for="password">Password:</label><br>
+        <input type="password" id="password" name="password" required><br><br>
+
+        <label for="email">Email:</label><br>
+        <input type="email" id="email" name="email" required><br><br>
+
+        <label for="name">Full Name:</label><br>
+        <input type="text" id="name" name="name" required><br><br>
+
+        <label for="dob">DOB:</label><br>
+        <input type="date" id="dob" name="dob" ><br><br>
+
+        <button type="submit">Submit</button> <br>
+        Already have an account?<a href="/login">Login</a>
+
+    </form>
+</body>
+</html>
