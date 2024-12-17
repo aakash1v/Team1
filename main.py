@@ -20,6 +20,8 @@ class Users(db.Model):
     Email = db.Column(db.String(100), unique=True, nullable=False)
     Name = db.Column(db.String(100), nullable=False)
     DOB = db.Column(db.Date, nullable=True)
+    Role = db.Column(db.String(50), nullable=True)
+    PhoneNumber = db.Column(db.String(15), unique=True, nullable=True)
 
 @app.route('/')
 def home():
@@ -32,11 +34,14 @@ def add_user_form():
 # Route to insert a user record
 @app.route('/add_user', methods=['POST'])
 def add_user():
+    # Retrieving form data
     username = request.form['username']
     email = request.form['email']
-    name = request.form['name']
+    name = request.form['username']  # Assuming the user's name is same as username for simplicity
     password = request.form['password']
     dob = request.form['dob']
+    role = request.form.get('role')  # Optional field
+    phone_number = request.form.get('phone_number')  # Optional field
 
     try:
         # Convert the date string to a datetime.date object
@@ -48,7 +53,15 @@ def add_user():
     hashed_password = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt())
 
     # Create a new user object
-    new_user = Users(UserName=username, Password=hashed_password.decode('utf-8'), Email=email, Name=name, DOB=dob)
+    new_user = Users(
+        UserName=username,
+        Password=hashed_password.decode('utf-8'),
+        Email=email,
+        Name=name,
+        DOB=dob,
+        Role=role,
+        PhoneNumber=phone_number
+    )
 
     # Add and commit the new user to the database
     try:
