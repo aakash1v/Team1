@@ -1,10 +1,11 @@
-from flask import Flask, request, jsonify, render_template
+from flask import Flask, request, jsonify, render_template, redirect, url_for, session
 from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime
 import bcrypt  # Import bcrypt for password hashing
 
 # Flask app setup
 app = Flask(__name__)
+app.secret_key = 'your_secret_key'  # Required for session management
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///mydatabase.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['SQLALCHEMY_ECHO'] = True
@@ -13,7 +14,7 @@ db = SQLAlchemy(app)
 
 # Define the Users table
 class Users(db.Model):
-    __tablename__ = 'users'
+    _tablename_ = 'users'
     UserID = db.Column(db.Integer, primary_key=True)
     UserName = db.Column(db.String(50), nullable=False)
     Password = db.Column(db.String(100), nullable=False)
@@ -22,10 +23,6 @@ class Users(db.Model):
     DOB = db.Column(db.Date, nullable=True)
     Role = db.Column(db.String(50), nullable=True)
     PhoneNumber = db.Column(db.String(15), unique=True, nullable=True)
-
-@app.route('/')
-def home():
-    return render_template('index.html')
 
 @app.route('/add_user_form')
 def add_user_form():
@@ -37,7 +34,7 @@ def add_user():
     # Retrieving form data
     username = request.form['username']
     email = request.form['email']
-    name = request.form['username']  # Assuming the user's name is same as username for simplicity
+    name = request.form['username']  # Assuming the user's name is the same as the username for simplicity
     password = request.form['password']
     dob = request.form['dob']
     role = request.form.get('role')  # Optional field
@@ -72,7 +69,7 @@ def add_user():
         db.session.rollback()
         return jsonify({'error': str(e)}), 400
 
-@app.route('/login', methods=['GET', 'POST'])
+@app.route('/', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
         username = request.form['username']
@@ -82,11 +79,17 @@ def login():
         user = Users.query.filter_by(UserName=username).first()
 
         if user and bcrypt.checkpw(password.encode('utf-8'), user.Password.encode('utf-8')):
+            # Successful login
+            session.pop('error_message', None)  # Clear any previous error messages
             return jsonify({'message': 'Successfully logged in to your account!'}), 201
         else:
-            return jsonify({'message': 'Make sure the credentials are correct'}), 401
+            # Store the error message in session
+            session['error_message'] = 'Wrong password. Please try again.'
+            return redirect(url_for('login'))
 
-    return render_template('login.html')
+    # Retrieve the error message from session (if any)
+    error_message = session.pop('error_message', None)
+    return render_template('login.html', error_message=error_message)
 
 # Initialize database tables
 with app.app_context():
