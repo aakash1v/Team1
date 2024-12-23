@@ -1,7 +1,7 @@
 from flask import Flask, request, jsonify, render_template, redirect, url_for, session
 from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime
-import bcrypt  # Import bcrypt for password hashing
+import password_utils as pw
 
 # Flask app setup
 app = Flask(__name__)
@@ -24,50 +24,43 @@ class Users(db.Model):
     Role = db.Column(db.String(50), nullable=True)
     PhoneNumber = db.Column(db.String(15), unique=True, nullable=True)
 
-@app.route('/add_user_form')
-def add_user_form():
-    return render_template('signup.html')
 
 # Route to insert a user record
-@app.route('/add_user', methods=['POST'])
+@app.route('/add_user', methods=['POST', 'GET'])
 def add_user():
-    # Retrieving form data
-    username = request.form['username']
-    email = request.form['email']
-    name = request.form['username']  # Assuming the user's name is the same as the username for simplicity
-    password = request.form['password']
-    dob = request.form['dob']
-    role = request.form.get('role')  # Optional field
-    phone_number = request.form.get('phone_number')  # Optional field
-
-    try:
-        # Convert the date string to a datetime.date object
+    if request.method == 'POST':
+        # Retrieving form data
+        username = request.form['username']
+        email = request.form['email']
+        name = request.form['username']  # Assuming the user's name is the same as the username 
+        password = request.form['password']
+        dob = request.form['dob']
+        role = request.form.get('role')  # Optional field
+        phone_number = request.form.get('phone_number')  # Optional field
+        hashed_password = pw.hash_password(password)
         dob = datetime.strptime(dob, '%Y-%m-%d').date()
-    except ValueError:
-        return jsonify({'error': 'Invalid date format. Use YYYY-MM-DD.'}), 400
 
-    # Hash the password before storing it
-    hashed_password = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt())
+        # Create a new user object
+        new_user = Users(
+            UserName=username,
+            Password=hashed_password.decode('utf-8'),
+            Email=email,
+            Name=name,
+            DOB=dob,
+            Role=role,
+            PhoneNumber=phone_number
+        )
 
-    # Create a new user object
-    new_user = Users(
-        UserName=username,
-        Password=hashed_password.decode('utf-8'),
-        Email=email,
-        Name=name,
-        DOB=dob,
-        Role=role,
-        PhoneNumber=phone_number
-    )
-
-    # Add and commit the new user to the database
-    try:
-        db.session.add(new_user)
-        db.session.commit()
-        return jsonify({'message': 'User added successfully!'}), 201
-    except Exception as e:
-        db.session.rollback()
-        return jsonify({'error': str(e)}), 400
+        # Add and commit the new user to the database
+        try:
+            db.session.add(new_user)
+            db.session.commit()
+            return jsonify({'message': 'User added successfully!'}), 201
+        except Exception as e:
+            db.session.rollback()
+            return jsonify({'error': str(e)}), 400
+    
+    return render_template('signup.html')
 
 @app.route('/', methods=['GET', 'POST'])
 def login():
@@ -78,8 +71,7 @@ def login():
         # Query the database to find a user by username
         user = Users.query.filter_by(UserName=username).first()
 
-        if user and bcrypt.checkpw(password.encode('utf-8'), user.Password.encode('utf-8')):
-            # Successful login
+        if user and pw.verify_password(password,user.Password.encode('utf-8')):
             session.pop('error_message', None)  # Clear any previous error messages
             return jsonify({'message': 'Successfully logged in to your account!'}), 201
         else:
@@ -90,6 +82,7 @@ def login():
     # Retrieve the error message from session (if any)
     error_message = session.pop('error_message', None)
     return render_template('login.html', error_message=error_message)
+
 
 # Initialize database tables
 with app.app_context():
