@@ -27,14 +27,6 @@ class Users(db.Model):
     Role = db.Column(db.String(50), nullable=True)
     PhoneNumber = db.Column(db.String(15), unique=True, nullable=True)
 
-# OTP generation and setting in session
-def generate_otp(username):
-    generated_otp = random.randint(100000, 999999)  
-    session['otp'] = generated_otp
-    session['otp_expiry'] = (datetime.now() + timedelta(minutes=5)).isoformat()  # Expires in 5 minutes
-    session['user'] = username
-    return session['otp']
-
 def send_otp_email(email, otp):
     sender_email = 'examplenamez543@gmail.com'
     sender_password = 'mfnppwcnqlmpzymc'
@@ -102,7 +94,10 @@ def login():
 
         if user and pw.verify_password(password,user.Password.encode('utf-8')):
             session.pop('error_message', None)  # Clear any previous error messages
-            otp = generate_otp(username)
+            otp = random.randint(100000, 999999)
+            session['otp'] = otp
+            session['otp_expiry'] = (datetime.now() + timedelta(minutes=5)).isoformat()
+            session['user'] = username
             send_otp_email(user.Email, otp)
 
             return redirect(url_for('verify_otp'))
@@ -115,45 +110,97 @@ def login():
     error_message = session.pop('error_message', None)
     return render_template('login.html', error_message=error_message)
 
+@app.route('/forgot_password', methods=['GET', 'POST'])
+def forgot_password():
+    if request.method == 'POST':
+        email = request.form['email']
 
+        # Check if email exists in the database
+        user = Users.query.filter_by(Email=email).first()
+        if not user:
+            session['error_message'] = 'Email not found.'
+            return redirect(url_for('forgot_password'))
+
+        # Generate OTP and store it in session
+        otp = random.randint(100000, 999999)
+        session['reset_otp'] = otp
+        session['reset_email'] = email
+        session['reset_otp_expiry'] = (datetime.now() + timedelta(minutes=5)).isoformat()
+
+        # Send OTP using existing function
+        send_otp_email(email, otp)
+        return redirect(url_for('verify_otp'))
+
+    error_message = session.pop('error_message', None)
+    return render_template('forgot_password.html', error_message=error_message)
+
+@app.route('/reset_password', methods=['GET', 'POST'])
+def reset_password():
+    if request.method == 'POST':
+        new_password = request.form['new_password']
+        confirm_password = request.form['confirm_password']
+
+        if new_password != confirm_password:
+            session['error_message'] = 'Passwords do not match.'
+            return redirect(url_for('reset_password'))
+
+        email = session.get('reset_email')
+        if not email:
+            return jsonify({'error': 'Session expired. Start the process again.'}), 400
+
+        # Update the password in the database
+        user = Users.query.filter_by(Email=email).first()
+        if not user:
+            return jsonify({'error': 'User not found.'}), 404
+
+        hashed_password = pw.hash_password(new_password)
+        user.Password = hashed_password.decode('utf-8')
+        db.session.commit()
+
+        session.pop('reset_email')
+        return jsonify({'message': 'Password reset successfully!'}), 200
+
+    error_message = session.pop('error_message', None)
+    return render_template('reset_password.html', error_message=error_message)
+
+
+# Verify OTP route
 # Verify OTP route
 @app.route('/verify_otp', methods=['GET', 'POST'])
 def verify_otp():
     if request.method == 'POST':
         entered_otp = request.form['otp']
+
+        # Check for OTP context: login or password reset
         if 'otp' in session and 'otp_expiry' in session:
+            # Login OTP verification
             otp_expiry = datetime.fromisoformat(session['otp_expiry'])
             if datetime.now() < otp_expiry and int(entered_otp) == session['otp']:
                 session.pop('otp')
                 session.pop('otp_expiry')
                 return jsonify({'message': 'Successfully logged in to your account!'}), 201
             else:
-                session['error_message'] = 'Invalid or expired OTP.'
-        return redirect(url_for('verify_otp'))
+                session['error_message'] = 'Invalid or expired OTP for login.'
+                return redirect(url_for('verify_otp'))
+
+        elif 'reset_otp' in session and 'reset_otp_expiry' in session:
+            # Password reset OTP verification
+            reset_otp_expiry = datetime.fromisoformat(session['reset_otp_expiry'])
+            if datetime.now() < reset_otp_expiry and int(entered_otp) == session['reset_otp']:
+                session.pop('reset_otp')
+                session.pop('reset_otp_expiry')
+                return redirect(url_for('reset_password'))  # Proceed to password reset
+
+            else:
+                session['error_message'] = 'Invalid or expired OTP for password reset.'
+                return redirect(url_for('verify_otp'))
+
+        else:
+            session['error_message'] = 'OTP context not found.'
+            return redirect(url_for('verify_otp'))
 
     error_message = session.pop('error_message', None)
     return render_template('verify_otp.html', error_message=error_message)
-
-
-@app.route('/resend_otp', methods=['POST'])
-def resend_otp():
-    if 'user' in session:
-        username = session['user']
-        user = Users.query.filter_by(UserName=username).first()
-        if user:
-            # Generate a new OTP
-            otp = random.randint(100000, 999999)
-            session['otp'] = otp
-            session['otp_expiry'] = (datetime.now() + timedelta(minutes=5)).isoformat()
-            send_otp_email(user.Email, otp)
-            session['error_message'] = 'A new OTP has been sent to your email.'
-        else:
-            session['error_message'] = 'User not found. Please log in again.'
-    else:
-        session['error_message'] = 'Session expired. Please log in again.'
-
-    return redirect(url_for('verify_otp'))
-
 
 # Initialize database tables
 with app.app_context():
@@ -161,3 +208,4 @@ with app.app_context():
 
 if __name__ == '__main__':
     app.run(debug=True)
+
