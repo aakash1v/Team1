@@ -27,6 +27,14 @@ class Users(db.Model):
     Role = db.Column(db.String(50), nullable=True)
     PhoneNumber = db.Column(db.String(15), unique=True, nullable=True)
 
+# OTP generation and setting in session
+def generate_otp(username):
+    generated_otp = random.randint(100000, 999999)  
+    session['otp'] = generated_otp
+    session['otp_expiry'] = (datetime.now() + timedelta(minutes=5)).isoformat()  # Expires in 5 minutes
+    session['user'] = username
+    return session['otp']
+
 def send_otp_email(email, otp):
     sender_email = 'examplenamez543@gmail.com'
     sender_password = 'mfnppwcnqlmpzymc'
@@ -94,10 +102,7 @@ def login():
 
         if user and pw.verify_password(password,user.Password.encode('utf-8')):
             session.pop('error_message', None)  # Clear any previous error messages
-            otp = random.randint(100000, 999999)
-            session['otp'] = otp
-            session['otp_expiry'] = (datetime.now() + timedelta(minutes=5)).isoformat()
-            session['user'] = username
+            otp = generate_otp(username)
             send_otp_email(user.Email, otp)
 
             return redirect(url_for('verify_otp'))
@@ -128,6 +133,27 @@ def verify_otp():
 
     error_message = session.pop('error_message', None)
     return render_template('verify_otp.html', error_message=error_message)
+
+
+@app.route('/resend_otp', methods=['POST'])
+def resend_otp():
+    if 'user' in session:
+        username = session['user']
+        user = Users.query.filter_by(UserName=username).first()
+        if user:
+            # Generate a new OTP
+            otp = random.randint(100000, 999999)
+            session['otp'] = otp
+            session['otp_expiry'] = (datetime.now() + timedelta(minutes=5)).isoformat()
+            send_otp_email(user.Email, otp)
+            session['error_message'] = 'A new OTP has been sent to your email.'
+        else:
+            session['error_message'] = 'User not found. Please log in again.'
+    else:
+        session['error_message'] = 'Session expired. Please log in again.'
+
+    return redirect(url_for('verify_otp'))
+
 
 # Initialize database tables
 with app.app_context():
