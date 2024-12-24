@@ -17,7 +17,7 @@ db = SQLAlchemy(app)
 
 # Define the Users table
 class Users(db.Model):
-    _tablename_ = 'users'
+    __tablename__ = 'users'
     UserID = db.Column(db.Integer, primary_key=True)
     UserName = db.Column(db.String(50), nullable=False)
     Password = db.Column(db.String(100), nullable=False)
@@ -45,8 +45,6 @@ def send_otp_email(email, otp):
     except Exception as e:
         print(f'Error sending email: {str(e)}')
 
-
-# Route to insert a user record
 @app.route('/add_user', methods=['POST', 'GET'])
 def add_user():
     if request.method == 'POST':
@@ -110,6 +108,25 @@ def login():
     error_message = session.pop('error_message', None)
     return render_template('login.html', error_message=error_message)
 
+@app.route('/resend_otp', methods=['POST'])
+def resend_otp():
+    if 'user' in session:
+        username = session['user']
+        user = Users.query.filter_by(UserName=username).first()
+        if user:
+            # Generate a new OTP
+            otp = random.randint(100000, 999999)
+            session['otp'] = otp
+            session['otp_expiry'] = (datetime.now() + timedelta(minutes=5)).isoformat()
+            send_otp_email(user.Email, otp)
+            session['error_message'] = 'A new OTP has been sent to your email.'
+        else:
+            session['error_message'] = 'User not found. Please log in again.'
+    else:
+        session['error_message'] = 'Session expired. Please log in again.'
+
+    return redirect(url_for('verify_otp'))
+
 @app.route('/forgot_password', methods=['GET', 'POST'])
 def forgot_password():
     if request.method == 'POST':
@@ -163,17 +180,25 @@ def reset_password():
     error_message = session.pop('error_message', None)
     return render_template('reset_password.html', error_message=error_message)
 
-
-# Verify OTP route
 # Verify OTP route
 @app.route('/verify_otp', methods=['GET', 'POST'])
 def verify_otp():
     if request.method == 'POST':
         entered_otp = request.form['otp']
 
-        # Check for OTP context: login or password reset
-        if 'otp' in session and 'otp_expiry' in session:
-            # Login OTP verification
+        # Handle password reset OTP verification
+        if 'reset_otp' in session and 'reset_otp_expiry' in session:
+            reset_otp_expiry = datetime.fromisoformat(session['reset_otp_expiry'])
+            if datetime.now() < reset_otp_expiry and int(entered_otp) == session['reset_otp']:
+                session.pop('reset_otp')
+                session.pop('reset_otp_expiry')
+                return redirect(url_for('reset_password'))  # Proceed to password reset
+            else:
+                session['error_message'] = 'Invalid or expired OTP for password reset.'
+                return redirect(url_for('verify_otp'))
+
+        # Handle login OTP verification
+        elif 'otp' in session and 'otp_expiry' in session:
             otp_expiry = datetime.fromisoformat(session['otp_expiry'])
             if datetime.now() < otp_expiry and int(entered_otp) == session['otp']:
                 session.pop('otp')
@@ -183,24 +208,15 @@ def verify_otp():
                 session['error_message'] = 'Invalid or expired OTP for login.'
                 return redirect(url_for('verify_otp'))
 
-        elif 'reset_otp' in session and 'reset_otp_expiry' in session:
-            # Password reset OTP verification
-            reset_otp_expiry = datetime.fromisoformat(session['reset_otp_expiry'])
-            if datetime.now() < reset_otp_expiry and int(entered_otp) == session['reset_otp']:
-                session.pop('reset_otp')
-                session.pop('reset_otp_expiry')
-                return redirect(url_for('reset_password'))  # Proceed to password reset
-
-            else:
-                session['error_message'] = 'Invalid or expired OTP for password reset.'
-                return redirect(url_for('verify_otp'))
-
         else:
             session['error_message'] = 'OTP context not found.'
             return redirect(url_for('verify_otp'))
 
     error_message = session.pop('error_message', None)
     return render_template('verify_otp.html', error_message=error_message)
+
+
+
 
 # Initialize database tables
 with app.app_context():
