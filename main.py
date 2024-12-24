@@ -1,7 +1,10 @@
 from flask import Flask, request, jsonify, render_template, redirect, url_for, session
 from flask_sqlalchemy import SQLAlchemy
-from datetime import datetime
+from datetime import datetime, timedelta
 import password_utils as pw
+import random
+import smtplib
+from email.mime.text import MIMEText
 
 # Flask app setup
 app = Flask(__name__)
@@ -23,6 +26,24 @@ class Users(db.Model):
     DOB = db.Column(db.Date, nullable=True)
     Role = db.Column(db.String(50), nullable=True)
     PhoneNumber = db.Column(db.String(15), unique=True, nullable=True)
+
+def send_otp_email(email, otp):
+    sender_email = 'examplenamez543@gmail.com'
+    sender_password = 'mfnppwcnqlmpzymc'
+    subject = 'Your OTP Code'
+    body = f'Your OTP code is: {otp}'
+
+    msg = MIMEText(body)
+    msg['Subject'] = subject
+    msg['From'] = sender_email
+    msg['To'] = email
+
+    try:
+        with smtplib.SMTP_SSL('smtp.gmail.com', 465) as server:
+            server.login(sender_email, sender_password)
+            server.sendmail(sender_email, email, msg.as_string())
+    except Exception as e:
+        print(f'Error sending email: {str(e)}')
 
 
 # Route to insert a user record
@@ -73,7 +94,13 @@ def login():
 
         if user and pw.verify_password(password,user.Password.encode('utf-8')):
             session.pop('error_message', None)  # Clear any previous error messages
-            return jsonify({'message': 'Successfully logged in to your account!'}), 201
+            otp = random.randint(100000, 999999)
+            session['otp'] = otp
+            session['otp_expiry'] = (datetime.now() + timedelta(minutes=5)).isoformat()
+            session['user'] = username
+            send_otp_email(user.Email, otp)
+
+            return redirect(url_for('verify_otp'))
         else:
             # Store the error message in session
             session['error_message'] = 'Wrong password. Please try again.'
@@ -83,6 +110,24 @@ def login():
     error_message = session.pop('error_message', None)
     return render_template('login.html', error_message=error_message)
 
+
+# Verify OTP route
+@app.route('/verify_otp', methods=['GET', 'POST'])
+def verify_otp():
+    if request.method == 'POST':
+        entered_otp = request.form['otp']
+        if 'otp' in session and 'otp_expiry' in session:
+            otp_expiry = datetime.fromisoformat(session['otp_expiry'])
+            if datetime.now() < otp_expiry and int(entered_otp) == session['otp']:
+                session.pop('otp')
+                session.pop('otp_expiry')
+                return jsonify({'message': 'Successfully logged in to your account!'}), 201
+            else:
+                session['error_message'] = 'Invalid or expired OTP.'
+        return redirect(url_for('verify_otp'))
+
+    error_message = session.pop('error_message', None)
+    return render_template('verify_otp.html', error_message=error_message)
 
 # Initialize database tables
 with app.app_context():
