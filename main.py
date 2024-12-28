@@ -1,13 +1,14 @@
 from flask import Flask, request, jsonify, render_template, redirect, url_for, session
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy.orm import DeclarativeBase
-# from sqlalchemy import create_engine
 from datetime import datetime, timedelta
 import password_utils as pw
+import send_mail as sm
 import random
-import smtplib
-from email.mime.text import MIMEText
 import os
+
+def otp_generator():
+    return random.randint(100000, 999999)
 
 # Flask app setup
 app = Flask(__name__)
@@ -41,54 +42,40 @@ with app.app_context():
     db.create_all()
 
 
+### ADMIN DASHBOARD ....
+
 @app.route('/delete_user/<int:user_id>', methods=['POST'])
 def delete_user(user_id):
     user = Users.query.get_or_404(user_id)
-    try:
+    if session['role'] == "admin":
         db.session.delete(user)
         db.session.commit()
+        sm.user_deleted(user.Email, user)
         return redirect(url_for('admin_dashboard'))
-    except Exception as e:
-        db.session.rollback()
-        return jsonify({'error': str(e)}), 400
+    else:
+        return jsonify({'error': "u don't have enough rights.."}), 400
 
 
 @app.route('/update_approval/<int:user_id>', methods=['POST'])
 def update_approval(user_id):
     user = Users.query.get_or_404(user_id)
-    approved = 'approved' in request.form  # Check if the checkbox is checked
-    user.approved = approved
-    try:
+    if session['role'] == "admin":
+        approved = 'approved' in request.form  # Check if the checkbox is checked
+        user.approved = approved
         db.session.commit()
+        sm.user_approved(user.Email, user)
         return redirect(url_for('admin_dashboard'))
-    except Exception as e:
-        db.session.rollback()
-        return jsonify({'error': str(e)}), 400
+    else:
+        return jsonify({'error': "u don't have enough rights to make changes.."}), 400
 
 
 @app.route('/admin_dashboard')
 def admin_dashboard():
-    # Query the database for all users
     users = Users.query.all()
     return render_template('admin_dashboard.html', users=users)
 
-def send_otp_email(email, otp):
-    sender_email = 'examplenamez543@gmail.com'
-    sender_password = 'mfnppwcnqlmpzymc'
-    subject = 'Your OTP Code'
-    body = f'Your OTP code is: {otp}'
 
-    msg = MIMEText(body)
-    msg['Subject'] = subject
-    msg['From'] = sender_email
-    msg['To'] = email
-
-    try:
-        with smtplib.SMTP_SSL('smtp.gmail.com', 465) as server:
-            server.login(sender_email, sender_password)
-            server.sendmail(sender_email, email, msg.as_string())
-    except Exception as e:
-        print(f'Error sending email: {str(e)}')
+### USER REGESTRATION ...
 
 @app.route('/add_user', methods=['POST', 'GET'])
 def add_user():
@@ -106,6 +93,8 @@ def add_user():
         approved = False
         if role.lower() == "admin":
             approved = True
+        else:
+            sm.approval_status_mail(email, username)
 
         # Create a new user object
         new_user = Users(
@@ -130,6 +119,9 @@ def add_user():
     
     return render_template('signup.html')
 
+
+###### USER LOGIN .....
+
 @app.route('/', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
@@ -141,15 +133,16 @@ def login():
 
         if user and pw.verify_password(password,user.Password.encode('utf-8')):
             if not user.approved and user.Role != 'admin':
-                session['error_message'] = 'Your account is not approved by the admin.'
+                session['error_message'] = "Your account is not approved by the admin."
                 return redirect(url_for('login'))
             session.pop('error_message', None)  # Clear any previous error messages
-            otp = random.randint(100000, 999999)
+            otp = otp_generator()
+            sm.send_otp_email(user.Email, otp)
+
             session['otp'] = otp
             session['otp_expiry'] = (datetime.now() + timedelta(minutes=5)).isoformat()
             session['user'] = username
             session['role']=user.Role
-            send_otp_email(user.Email, otp)
             return redirect(url_for('verify_otp'))
 
         else:
@@ -168,10 +161,11 @@ def resend_otp():
         user = Users.query.filter_by(UserName=username).first()
         if user:
             # Generate a new OTP
-            otp = random.randint(100000, 999999)
+            otp = otp_generator()
+            sm.send_otp_email(user.Email, otp)
+
             session['otp'] = otp
             session['otp_expiry'] = (datetime.now() + timedelta(minutes=5)).isoformat()
-            send_otp_email(user.Email, otp)
             session['error_message'] = 'A new OTP has been sent to your email.'
         else:
             session['error_message'] = 'User not found. Please log in again.'
@@ -179,6 +173,8 @@ def resend_otp():
         session['error_message'] = 'Session expired. Please log in again.'
 
     return redirect(url_for('verify_otp'))
+
+##### FORGET PASSWORD ....
 
 @app.route('/forgot_password', methods=['GET', 'POST'])
 def forgot_password():
@@ -192,13 +188,12 @@ def forgot_password():
             return redirect(url_for('forgot_password'))
 
         # Generate OTP and store it in session
-        otp = random.randint(100000, 999999)
+        otp = otp_generator()
+        sm.send_otp_email(email, otp)
+
         session['reset_otp'] = otp
         session['reset_email'] = email
         session['reset_otp_expiry'] = (datetime.now() + timedelta(minutes=5)).isoformat()
-
-        # Send OTP using existing function
-        send_otp_email(email, otp)
         return redirect(url_for('verify_otp'))
 
     error_message = session.pop('error_message', None)
@@ -234,7 +229,7 @@ def reset_password():
     return render_template('reset_password.html', error_message=error_message)
 
 
-# Verify OTP route
+#### VERIFY OTP ROUTE 
 @app.route('/verify_otp', methods=['GET', 'POST'])
 def verify_otp():
     if request.method == 'POST':
@@ -271,7 +266,6 @@ def verify_otp():
 
     error_message = session.pop('error_message', None)
     return render_template('verify_otp.html', error_message=error_message)
-
 
 
 if __name__ == '__main__':
