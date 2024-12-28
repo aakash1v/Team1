@@ -1,19 +1,27 @@
 from flask import Flask, request, jsonify, render_template, redirect, url_for, session
 from flask_sqlalchemy import SQLAlchemy
+from sqlalchemy.orm import DeclarativeBase
+# from sqlalchemy import create_engine
 from datetime import datetime, timedelta
 import password_utils as pw
 import random
 import smtplib
 from email.mime.text import MIMEText
+import os
 
 # Flask app setup
 app = Flask(__name__)
-app.secret_key = 'your_secret_key'  # Required for session management
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///mydatabase.db'
+app.config['SECRET_KEY'] = '8BYkEfBA6O6donzWlSihBXox7C0sKR6b'
+app.config['SQLALCHEMY_DATABASE_URI'] = f"sqlite:///{os.path.join(app.instance_path, 'mydatabase.db')}"
+os.makedirs(app.instance_path, exist_ok=True)
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['SQLALCHEMY_ECHO'] = True
 
 db = SQLAlchemy(app)
+
+# Database Setup
+class Base(DeclarativeBase):
+    pass
 
 # Define the Users table
 class Users(db.Model):
@@ -26,6 +34,43 @@ class Users(db.Model):
     DOB = db.Column(db.Date, nullable=True)
     Role = db.Column(db.String(50), nullable=True)
     PhoneNumber = db.Column(db.String(15), unique=True, nullable=True)
+    approved = db.Column(db.Boolean, default=False)
+
+
+with app.app_context():
+    db.create_all()
+
+
+@app.route('/delete_user/<int:user_id>', methods=['POST'])
+def delete_user(user_id):
+    user = Users.query.get_or_404(user_id)
+    try:
+        db.session.delete(user)
+        db.session.commit()
+        return redirect(url_for('admin_dashboard'))
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': str(e)}), 400
+
+
+@app.route('/update_approval/<int:user_id>', methods=['POST'])
+def update_approval(user_id):
+    user = Users.query.get_or_404(user_id)
+    approved = 'approved' in request.form  # Check if the checkbox is checked
+    user.approved = approved
+    try:
+        db.session.commit()
+        return redirect(url_for('admin_dashboard'))
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': str(e)}), 400
+
+
+@app.route('/admin_dashboard')
+def admin_dashboard():
+    # Query the database for all users
+    users = Users.query.all()
+    return render_template('admin_dashboard.html', users=users)
 
 def send_otp_email(email, otp):
     sender_email = 'examplenamez543@gmail.com'
@@ -58,6 +103,9 @@ def add_user():
         phone_number = request.form.get('phone_number')  # Optional field
         hashed_password = pw.hash_password(password)
         dob = datetime.strptime(dob, '%Y-%m-%d').date()
+        approved = False
+        if role.lower() == "admin":
+            approved = True
 
         # Create a new user object
         new_user = Users(
@@ -67,7 +115,8 @@ def add_user():
             Name=name,
             DOB=dob,
             Role=role,
-            PhoneNumber=phone_number
+            PhoneNumber=phone_number,
+            approved = approved
         )
 
         # Add and commit the new user to the database
@@ -91,14 +140,18 @@ def login():
         user = Users.query.filter_by(UserName=username).first()
 
         if user and pw.verify_password(password,user.Password.encode('utf-8')):
+            if not user.approved and user.Role != 'admin':
+                session['error_message'] = 'Your account is not approved by the admin.'
+                return redirect(url_for('login'))
             session.pop('error_message', None)  # Clear any previous error messages
             otp = random.randint(100000, 999999)
             session['otp'] = otp
             session['otp_expiry'] = (datetime.now() + timedelta(minutes=5)).isoformat()
             session['user'] = username
+            session['role']=user.Role
             send_otp_email(user.Email, otp)
-
             return redirect(url_for('verify_otp'))
+
         else:
             # Store the error message in session
             session['error_message'] = 'Wrong password. Please try again.'
@@ -180,6 +233,7 @@ def reset_password():
     error_message = session.pop('error_message', None)
     return render_template('reset_password.html', error_message=error_message)
 
+
 # Verify OTP route
 @app.route('/verify_otp', methods=['GET', 'POST'])
 def verify_otp():
@@ -203,7 +257,10 @@ def verify_otp():
             if datetime.now() < otp_expiry and int(entered_otp) == session['otp']:
                 session.pop('otp')
                 session.pop('otp_expiry')
-                return jsonify({'message': 'Successfully logged in to your account!'}), 201
+                if session.get('role') == 'admin':
+                    return redirect(url_for('admin_dashboard'))  # Redirect to Admin Dashboard
+                else:
+                    return jsonify({'message': 'Successfully logged in to your account!'}), 201
             else:
                 session['error_message'] = 'Invalid or expired OTP for login.'
                 return redirect(url_for('verify_otp'))
@@ -217,11 +274,5 @@ def verify_otp():
 
 
 
-
-# Initialize database tables
-with app.app_context():
-    db.create_all()
-
 if __name__ == '__main__':
-    app.run(debug=True)
-
+    app.run(debug=True)  
