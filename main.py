@@ -93,8 +93,7 @@ def add_user():
         approved = False
         if role.lower() == "admin":
             approved = True
-        else:
-            sm.approval_status_mail(email, username)
+            
 
         # Create a new user object
         new_user = Users(
@@ -112,6 +111,7 @@ def add_user():
         try:
             db.session.add(new_user)
             db.session.commit()
+            sm.approval_status_mail(email, username)
             return jsonify({'message': 'User added successfully!'}), 201
         except Exception as e:
             db.session.rollback()
