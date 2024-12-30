@@ -1,6 +1,9 @@
 import smtplib
 from email.mime.text import MIMEText
+from email.message import EmailMessage
 
+# sender_email = "sukheshdasari@gmail.com"
+# sender_password = "drer ssxn yxuk xwlz"  
 SENDER_EMAIL = "examplenamez543@gmail.com"
 SENDER_PASSWORD = "mfnppwcnqlmpzymc"
 
@@ -70,3 +73,37 @@ def user_approved(email, user):
             server.sendmail(SENDER_EMAIL, email, msg.as_string())
     except Exception as e:
         print(f'Error sending email: {str(e)}') 
+
+
+
+####  TEAM 2 ...
+
+def send_emails_to_users(email_list, project_name, proj_desc, roles):
+    sender_email = "sukheshdasari@gmail.com"
+    sender_password = "drerssxnyxukxwlz"  
+    subject = "Project Assignment Notification"
+
+    try:
+        for recipient_email, role in zip(email_list, roles):
+            msg = EmailMessage()
+            body_template = (
+                f"Hello,\n\nYou have assigned {role},\n\n"
+                f"You have been assigned to a new project: {project_name}.\n"
+                "Please log in to the system for more details.\n\n"
+                f"Description of project:{proj_desc}\n\n"
+                "Regards,\nProject Management Team"
+            )
+            msg["From"] = sender_email
+            msg["To"] = recipient_email
+            msg["Subject"] = subject
+            msg.set_content(body_template)
+
+            with smtplib.SMTP("smtp.gmail.com", 587) as server:
+                server.starttls()
+                server.login(sender_email, sender_password)
+                server.send_message(msg)
+
+            print(f"Email sent to {recipient_email}!")
+
+    except Exception as e:
+        print(f"Failed to send email: {e}")

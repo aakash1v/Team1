@@ -11,11 +11,8 @@ from models import (
     ProjectUsers,
     SprintCalendar,
 )
-from email.message import EmailMessage
-import smtplib
 from datetime import datetime
-
-
+import send_mail as sm
 
 
 app = Flask(__name__)
@@ -49,9 +46,12 @@ with app.app_context():
 @app.route("/")
 def projects():
     projects_data = ProjectDetails.query.all()
+    print(projects_data)
     total_projects = ProjectDetails.query.count()
     active_projects = ProjectDetails.query.filter_by(Status="active").count()
     on_hold_projects = ProjectDetails.query.filter_by(Status="On Hold").count()
+    user_name = Users.query.filter_by(Email="john.admin@example.com").first().Name
+
 
     projects = [
         {
@@ -65,14 +65,225 @@ def projects():
         }
         for project in projects_data
     ]
-
+    print(projects)
     return render_template(
         "Dashboard.html",
         projects=projects,
         total_projects=total_projects,
         active_projects=active_projects,
         on_hold_projects=on_hold_projects,
+        user_name=user_name
     )
+
+# # Submission of Form
+# @app.route("/submit", methods=["POST"])
+# def submit_project_data():
+#     try:
+#         data = request.json
+
+#         # Validate Product Owner ID
+#         if not data.get("product_owner_id") or not isinstance(
+#             data["product_owner_id"], int
+#         ):
+#             flash("Valid Product Owner ID is required.", "error")
+#             return redirect(request.referrer)
+#         product_owner = ProductOwner.query.get(data["product_owner_id"])
+#         if not product_owner:
+#             flash("Product Owner not found.", "error")
+#             return redirect(request.referrer)
+
+#         # Validate Project Name
+#         if not data.get("project_name") or len(data["project_name"].strip()) == 0:
+#             flash("Project Name is required.", "error")
+#             return redirect(request.referrer)
+
+#         # Validate Project Description
+#         if (
+#             not data.get("project_description")
+#             or len(data["project_description"].strip()) == 0
+#         ):
+#             flash("Project Description is required.", "error")
+#             return redirect(request.referrer)
+
+#         # Validate Dates
+#         try:
+#             start_date = datetime.strptime(data["start_date"], "%Y-%m-%d").date()
+#             end_date = datetime.strptime(data["end_date"], "%Y-%m-%d").date()
+#             revised_end_date = (
+#                 datetime.strptime(data["revised_end_date"], "%Y-%m-%d").date()
+#                 if data.get("revised_end_date")
+#                 else None
+#             )
+#         except ValueError:
+#             flash("Invalid date format. Use YYYY-MM-DD.", "error")
+#             return redirect(request.referrer)
+
+#         if start_date >= end_date:
+#             flash("Start date cannot be greater than or equal to end date.", "error")
+#             return redirect(request.referrer)
+
+#         # Validate Status
+#         if data.get("status") not in ["Active", "Completed", "On Hold", "Cancelled"]:
+#             flash(
+#                 "Invalid status. Must be one of: Active, Completed, or Pending.",
+#                 "error",
+#             )
+#             return redirect(request.referrer)
+
+#         # Add Project
+#         new_project = ProjectDetails(
+#             ProductOwnerId=data["product_owner_id"],
+#             ProjectName=data["project_name"],
+#             ProjectDescription=data["project_description"],
+#             StartDate=start_date,
+#             EndDate=end_date,
+#             RevisedEndDate=revised_end_date,
+#             Status=data["status"],
+#         )
+#         db.session.add(new_project)
+#         db.session.commit()
+
+#         # Validate Selected User IDs
+#         if not data.get("selected_user_ids"):
+#             flash("At least one user must be selected.", "error")
+#             return redirect(request.referrer)
+
+#         selected_user_ids = data["selected_user_ids"].split(",")
+#         user_emails = []
+
+#         for user_id in selected_user_ids:
+#             if not user_id.isdigit():
+#                 flash(f"Invalid User ID: {user_id}.", "error")
+#                 return redirect(request.referrer)
+#             user = Users.query.get(int(user_id))
+#             if not user:
+#                 flash(f"User with ID {user_id} not found.", "error")
+#                 return redirect(request.referrer)
+#             user_emails.append(user.Email)
+#             new_project_user = ProjectUsers(
+#                 UserID=user.UserID, ProjectId=new_project.ProjectId
+#             )
+#             db.session.add(new_project_user)
+
+#         # Send emails to product owner and team members
+#         sm.send_emails_to_users(
+#             [product_owner.Email] + user_emails,
+#             data["project_name"],
+#             data["project_description"],
+#             ["Product Owner"] + ["Team Member"] * len(user_emails),
+#         )
+
+#         # Validate and Add Sprints
+#         for i, sprint in enumerate(data["sprints"], start=1):
+#             try:
+#                 sprint_start_date = datetime.strptime(
+#                     sprint["start_date"], "%Y-%m-%d"
+#                 ).date()
+#                 sprint_end_date = datetime.strptime(
+#                     sprint["end_date"], "%Y-%m-%d"
+#                 ).date()
+#             except ValueError:
+#                 flash(f"Invalid date format for Sprint {i}. Use YYYY-MM-DD.", "error")
+#                 return redirect(request.referrer)
+
+#             if sprint_start_date >= sprint_end_date:
+#                 flash(
+#                     f"Sprint {i} start date cannot be greater than or equal to the end date.",
+#                     "error",
+#                 )
+#                 return redirect(request.referrer)
+
+#             if not sprint.get("scrum_master_id") or not isinstance(
+#                 sprint["scrum_master_id"], int
+#             ):
+#                 flash(f"Valid Scrum Master ID is required for Sprint {i}.", "error")
+#                 return redirect(request.referrer)
+#             scrum_master = ScrumMasters.query.get(sprint["scrum_master_id"])
+#             if not scrum_master:
+#                 flash(
+#                     f"Scrum Master with ID {sprint['scrum_master_id']} not found.",
+#                     "error",
+#                 )
+#                 return redirect(request.referrer)
+
+#             new_sprint = SprintCalendar(
+#                 ProjectId=new_project.ProjectId,
+#                 SprintNo=i,
+#                 ScrumMasterID=sprint["scrum_master_id"],
+#                 StartDate=sprint_start_date,
+#                 EndDate=sprint_end_date,
+#                 Velocity=sprint.get("velocity", 0),
+#             )
+#             db.session.add(new_sprint)
+#             db.session.commit()
+
+#             # Validate and Add User Stories
+#             for j, story in enumerate(sprint["user_stories"], start=1):
+#                 if (
+#                     not story.get("description")
+#                     or len(story["description"].strip()) == 0
+#                 ):
+#                     flash(
+#                         f"Description is required for User Story {j} in Sprint {i}.",
+#                         "error",
+#                     )
+#                     return redirect(request.referrer)
+#                 if not story.get("planned_sprint") or not isinstance(
+#                     story["planned_sprint"], int
+#                 ):
+#                     flash(
+#                         f"Valid Planned Sprint is required for User Story {j} in Sprint {i}.",
+#                         "error",
+#                     )
+#                     return redirect(request.referrer)
+#                 if not story.get("actual_sprint") or not isinstance(
+#                     story["actual_sprint"], int
+#                 ):
+#                     flash(
+#                         f"Valid Actual Sprint is required for User Story {j} in Sprint {i}.",
+#                         "error",
+#                     )
+#                     return redirect(request.referrer)
+#                 if story.get("moscow") not in [
+#                     "Must Have",
+#                     "Should Have",
+#                     "Could Have",
+#                     "Won't Have",
+#                 ]:
+#                     flash(
+#                         f"Invalid MoSCoW priority for User Story {j} in Sprint {i}.",
+#                         "error",
+#                     )
+#                     return redirect(request.referrer)
+#                 if not story.get("assignee"):
+#                     flash(
+#                         f"Assignee is required for User Story {j} in Sprint {i}.",
+#                         "error",
+#                     )
+#                     return redirect(request.referrer)
+
+#                 new_story = UserStories(
+#                     ProjectId=new_project.ProjectId,
+#                     SprintId=new_sprint.SprintId,
+#                     PlannedSprint=story["planned_sprint"],
+#                     ActualSprint=story["actual_sprint"],
+#                     Description=story["description"],
+#                     StoryPoint=story.get("story_points", 0),
+#                     MOSCOW=story["moscow"],
+#                     Assignee=story["assignee"],
+#                     Status=story.get("status", "Pending"),
+#                 )
+#                 db.session.add(new_story)
+
+#         db.session.commit()
+#         flash("Project, sprints, and user stories added successfully.", "success")
+#         return jsonify({"message": "Project added successfully."}), 201
+
+#     except Exception as e:
+#         db.session.rollback()
+#         flash(f"An error occurred: {str(e)}", "error")
+#         return redirect(request.referrer)
+
 
 
 @app.route("/api/product_owners", methods=["GET"])
@@ -100,248 +311,6 @@ def users():
 @app.route("/addproject")
 def addproject():
     return render_template("index.html")
-
-
-# Mail Sending
-def send_emails_to_users(email_list, project_name, proj_desc, roles):
-    sender_email = "sukheshdasari@gmail.com"
-    sender_password = "drer ssxn yxuk xwlz"  # Use your app password here
-    subject = "Project Assignment Notification"
-
-    try:
-        for recipient_email, role in zip(email_list, roles):
-            msg = EmailMessage()
-            body_template = (
-                f"Hello,\n\nYou have assigned {role},\n\n"
-                f"You have been assigned to a new project: {project_name}.\n"
-                "Please log in to the system for more details.\n\n"
-                f"Description of project:{proj_desc}\n\n"
-                "Regards,\nProject Management Team"
-            )
-            msg["From"] = sender_email
-            msg["To"] = recipient_email
-            msg["Subject"] = subject
-            msg.set_content(body_template)
-
-            with smtplib.SMTP("smtp.gmail.com", 587) as server:
-                server.starttls()
-                server.login(sender_email, sender_password)
-                server.send_message(msg)
-
-            print(f"Email sent to {recipient_email}!")
-
-    except Exception as e:
-        print(f"Failed to send email: {e}")
-
-
-# Submission of Form
-@app.route("/submit", methods=["POST"])
-def submit_project_data():
-    try:
-        data = request.json
-
-        # Validate Product Owner ID
-        if not data.get("product_owner_id") or not isinstance(
-            data["product_owner_id"], int
-        ):
-            flash("Valid Product Owner ID is required.", "error")
-            return redirect(request.referrer)
-        product_owner = ProductOwner.query.get(data["product_owner_id"])
-        if not product_owner:
-            flash("Product Owner not found.", "error")
-            return redirect(request.referrer)
-
-        # Validate Project Name
-        if not data.get("project_name") or len(data["project_name"].strip()) == 0:
-            flash("Project Name is required.", "error")
-            return redirect(request.referrer)
-
-        # Validate Project Description
-        if (
-            not data.get("project_description")
-            or len(data["project_description"].strip()) == 0
-        ):
-            flash("Project Description is required.", "error")
-            return redirect(request.referrer)
-
-        # Validate Dates
-        try:
-            start_date = datetime.strptime(data["start_date"], "%Y-%m-%d").date()
-            end_date = datetime.strptime(data["end_date"], "%Y-%m-%d").date()
-            revised_end_date = (
-                datetime.strptime(data["revised_end_date"], "%Y-%m-%d").date()
-                if data.get("revised_end_date")
-                else None
-            )
-        except ValueError:
-            flash("Invalid date format. Use YYYY-MM-DD.", "error")
-            return redirect(request.referrer)
-
-        if start_date >= end_date:
-            flash("Start date cannot be greater than or equal to end date.", "error")
-            return redirect(request.referrer)
-
-        # Validate Status
-        if data.get("status") not in ["Active", "Completed", "On Hold", "Cancelled"]:
-            flash(
-                "Invalid status. Must be one of: Active, Completed, or Pending.",
-                "error",
-            )
-            return redirect(request.referrer)
-
-        # Add Project
-        new_project = ProjectDetails(
-            ProductOwnerId=data["product_owner_id"],
-            ProjectName=data["project_name"],
-            ProjectDescription=data["project_description"],
-            StartDate=start_date,
-            EndDate=end_date,
-            RevisedEndDate=revised_end_date,
-            Status=data["status"],
-        )
-        db.session.add(new_project)
-        db.session.commit()
-
-        # Validate Selected User IDs
-        if not data.get("selected_user_ids"):
-            flash("At least one user must be selected.", "error")
-            return redirect(request.referrer)
-
-        selected_user_ids = data["selected_user_ids"].split(",")
-        user_emails = []
-
-        for user_id in selected_user_ids:
-            if not user_id.isdigit():
-                flash(f"Invalid User ID: {user_id}.", "error")
-                return redirect(request.referrer)
-            user = Users.query.get(int(user_id))
-            if not user:
-                flash(f"User with ID {user_id} not found.", "error")
-                return redirect(request.referrer)
-            user_emails.append(user.Email)
-            new_project_user = ProjectUsers(
-                UserID=user.UserID, ProjectId=new_project.ProjectId
-            )
-            db.session.add(new_project_user)
-
-        # Send emails to product owner and team members
-        send_emails_to_users(
-            [product_owner.Email] + user_emails,
-            data["project_name"],
-            data["project_description"],
-            ["Product Owner"] + ["Team Member"] * len(user_emails),
-        )
-
-        # Validate and Add Sprints
-        for i, sprint in enumerate(data["sprints"], start=1):
-            try:
-                sprint_start_date = datetime.strptime(
-                    sprint["start_date"], "%Y-%m-%d"
-                ).date()
-                sprint_end_date = datetime.strptime(
-                    sprint["end_date"], "%Y-%m-%d"
-                ).date()
-            except ValueError:
-                flash(f"Invalid date format for Sprint {i}. Use YYYY-MM-DD.", "error")
-                return redirect(request.referrer)
-
-            if sprint_start_date >= sprint_end_date:
-                flash(
-                    f"Sprint {i} start date cannot be greater than or equal to the end date.",
-                    "error",
-                )
-                return redirect(request.referrer)
-
-            if not sprint.get("scrum_master_id") or not isinstance(
-                sprint["scrum_master_id"], int
-            ):
-                flash(f"Valid Scrum Master ID is required for Sprint {i}.", "error")
-                return redirect(request.referrer)
-            scrum_master = ScrumMasters.query.get(sprint["scrum_master_id"])
-            if not scrum_master:
-                flash(
-                    f"Scrum Master with ID {sprint['scrum_master_id']} not found.",
-                    "error",
-                )
-                return redirect(request.referrer)
-
-            new_sprint = SprintCalendar(
-                ProjectId=new_project.ProjectId,
-                SprintNo=i,
-                ScrumMasterID=sprint["scrum_master_id"],
-                StartDate=sprint_start_date,
-                EndDate=sprint_end_date,
-                Velocity=sprint.get("velocity", 0),
-            )
-            db.session.add(new_sprint)
-            db.session.commit()
-
-            # Validate and Add User Stories
-            for j, story in enumerate(sprint["user_stories"], start=1):
-                if (
-                    not story.get("description")
-                    or len(story["description"].strip()) == 0
-                ):
-                    flash(
-                        f"Description is required for User Story {j} in Sprint {i}.",
-                        "error",
-                    )
-                    return redirect(request.referrer)
-                if not story.get("planned_sprint") or not isinstance(
-                    story["planned_sprint"], int
-                ):
-                    flash(
-                        f"Valid Planned Sprint is required for User Story {j} in Sprint {i}.",
-                        "error",
-                    )
-                    return redirect(request.referrer)
-                if not story.get("actual_sprint") or not isinstance(
-                    story["actual_sprint"], int
-                ):
-                    flash(
-                        f"Valid Actual Sprint is required for User Story {j} in Sprint {i}.",
-                        "error",
-                    )
-                    return redirect(request.referrer)
-                if story.get("moscow") not in [
-                    "Must Have",
-                    "Should Have",
-                    "Could Have",
-                    "Won't Have",
-                ]:
-                    flash(
-                        f"Invalid MoSCoW priority for User Story {j} in Sprint {i}.",
-                        "error",
-                    )
-                    return redirect(request.referrer)
-                if not story.get("assignee"):
-                    flash(
-                        f"Assignee is required for User Story {j} in Sprint {i}.",
-                        "error",
-                    )
-                    return redirect(request.referrer)
-
-                new_story = UserStories(
-                    ProjectId=new_project.ProjectId,
-                    SprintId=new_sprint.SprintId,
-                    PlannedSprint=story["planned_sprint"],
-                    ActualSprint=story["actual_sprint"],
-                    Description=story["description"],
-                    StoryPoint=story.get("story_points", 0),
-                    MOSCOW=story["moscow"],
-                    Assignee=story["assignee"],
-                    Status=story.get("status", "Pending"),
-                )
-                db.session.add(new_story)
-
-        db.session.commit()
-        flash("Project, sprints, and user stories added successfully.", "success")
-        return jsonify({"message": "Project added successfully."}), 201
-
-    except Exception as e:
-        db.session.rollback()
-        flash(f"An error occurred: {str(e)}", "error")
-        return redirect(request.referrer)
 
 
 def get_all_scrum_masters():
@@ -592,6 +561,145 @@ def edit_project(project_id):
     return render_template(
         "edit_project.html", project=project, scrum_masters=scrum_masters
     )
+
+
+##### TEAM 3 ROUTES....
+
+@app.route('/viewproject/<int:project_id>', methods=['GET'])
+def viewproject(project_id):
+    # Fetch project details using the passed project_id
+    project = ProjectDetails.query.filter_by(ProjectId=project_id).first()  # Fetch project details
+    if not project:
+        # If the project is not found, handle the error (optional)
+        return "Project not found", 404
+
+    # Fetch user stories related to the specific project
+    userstories_data = UserStories.query.filter_by(ProjectId=project_id).all()
+
+    # Prepare the user stories data for the template
+    userstories = [
+        {
+            "us_id": user_story.UserStoryID,
+            "description": user_story.Description,
+            "status": user_story.Status,
+            "assignee": user_story.Assignee,
+            "sprint": f"Sprint {user_story.SprintId}"  # Assuming SprintId is used for sprint number
+        }
+        for user_story in userstories_data
+    ]
+
+    # Fetch sprint calendar data related to the specific project
+    sprints_data = SprintCalendar.query.filter_by(ProjectId=project_id).all()
+
+    # Prepare the sprint calendar data for the template
+    sprints = [
+        {
+            "sprint_no": sprint.SprintId,
+            "start_date": sprint.StartDate.strftime('%b %d, %Y'),
+            "end_date": sprint.EndDate.strftime('%b %d, %Y'),
+            "velocity": sprint.Velocity
+        }
+        for sprint in sprints_data
+    ]
+
+    # Pass the project, user stories, and sprints to the template
+    return render_template('view.html', userstories=userstories, project=project, sprints=sprints)
+
+
+@app.route('/submit', methods=['POST'])
+def submit_project_data():
+    try:
+        data = request.json
+        print(data)
+
+        # Convert date strings to Python datetime.date objects
+        start_date = datetime.strptime(data['start_date'], '%Y-%m-%d').date()
+        end_date = datetime.strptime(data['end_date'], '%Y-%m-%d').date()
+        revised_end_date = (
+            datetime.strptime(data['revised_end_date'], '%Y-%m-%d').date()
+            if data.get('revised_end_date')
+            else None
+        )
+
+        if start_date>=end_date:
+            raise Exception("StartDate Cant Greater than EndDate")
+        
+        # Add Project
+        new_project = ProjectDetails(
+            ProductOwnerId = data['product_owner_id'],
+            ProjectName = data['project_name'],
+            ProjectDescription = data['project_description'],
+            StartDate = start_date,
+            EndDate = end_date,
+            RevisedEndDate = revised_end_date,
+            Status = data['status']
+        )
+        
+        
+        db.session.add(new_project)
+        db.session.commit()
+        print("1st successfull")
+        last_project = ProjectDetails.query.order_by(ProjectDetails.ProjectId.desc()).first()
+        last_project_id = last_project.ProjectId if last_project else None
+
+        selected_user_id = data['selected_user_ids'].split(',')
+        for i in range(len(selected_user_id)):
+            new_project_user = ProjectUsers(
+                UserID = selected_user_id[i],
+                ProjectId = last_project_id
+            )
+            db.session.add(new_project_user)
+            db.session.commit()
+
+        #sprint_no
+        i = 1
+        # Add Sprints and User Stories
+        for sprint in data['sprints']:
+            sprint_start_date = datetime.strptime(sprint['start_date'], '%Y-%m-%d').date()
+            sprint_end_date = datetime.strptime(sprint['end_date'], '%Y-%m-%d').date()
+
+
+
+            new_sprint = SprintCalendar(
+                ProjectId = last_project_id,
+                SprintNo = i,
+                ScrumMasterID = sprint['scrum_master_id'],
+                StartDate = sprint_start_date,
+                EndDate = sprint_end_date,
+                Velocity = sprint['velocity']
+
+            )
+            i+=1
+            db.session.add(new_sprint)
+            db.session.commit()
+            print("2nd successfull")
+
+            for story in sprint['user_stories']:
+                last_sprint = SprintCalendar.query.order_by(SprintCalendar.SprintId.desc()).first()
+                last_sprint_id = last_sprint.SprintId if last_sprint else None
+                new_story = UserStories(
+                        ProjectId = last_project_id,
+                        SprintId = last_sprint_id,
+                        PlannedSprint = story['planned_sprint'],
+                        ActualSprint = story['actual_sprint'],
+                        Description = story['description'],
+                        StoryPoint = story['story_points'],
+                        MOSCOW = story['moscow'],
+                        Assignee = story['assignee'],
+                        Status = story['status']
+                )
+                db.session.add(new_story)
+                db.session.commit()
+                print("3rd successfull")
+
+        return jsonify({"message": "Project, sprints, and user stories added successfully."}), 201
+
+    except Exception as e:
+        db.session.rollback()
+        print("Full error traceback:")
+        traceback.print_exc()
+        return jsonify({"error": str(e)}), 400
+
 
 
 if __name__ == "__main__":

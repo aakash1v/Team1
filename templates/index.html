@@ -6,7 +6,6 @@
     <title>ADD PROJECT</title>
     <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='css/style.css') }}">
     <script src="{{ url_for('static', filename='js/script.js') }}"></script>
-    
 </head>
 
 <body>
@@ -15,25 +14,16 @@
     
         <!-- Profile Section -->
         <div class="profile">
-            <span>Hello,Sukhesh!!</span>
+            <span>Hello, {{ user_name }}!</span>
             <img src="{{ url_for('static', filename='images/my_image.jpg') }}" alt="Profile Picture" class="profile-pic">
         </div>
     </div>
-    {% with messages = get_flashed_messages(with_categories=true) %}
-    {% if messages %}
-    <script type="text/javascript">
-        alert("{{ messages[0][1] }}");  
-    </script>
-    {% endif %}
-    {% endwith %}
 
     <h1>ADD PROJECT DETAILS</h1>
+
     <!-- Hidden Form -->
-
     <div id="form-container" style="display: block;">
-
         <form id="project-form" action="/submit" method="post">
-            <button onclick="goBack()" class="back-button">Back</button>
             <div>
                 <h2>Project Details</h2>
                 <label for="product-owner-id">Product Owner</label>
@@ -70,10 +60,10 @@
 
                 <label for="status">Status</label>
                 <select id="status" name="status" required>
-                    <option value="Active">Active</option>
-                    <option value="Completed">Completed</option>
+                    <option value="active">Active</option>
+                    <option value="completed">Completed</option>
                     <option value="On Hold">On Hold</option>
-                    <option value="Cancelled">Cancelled</option>
+                    <option value="cancelled">Cancelled</option>
                 </select>
             </div>
 

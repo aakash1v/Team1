@@ -1,109 +1,162 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Agile Project Management Dashboard</title>
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="../static/css/dashboard.css"> 
-</head>
-<body>
-    <div class="dashboard-container">
-        <!-- Header -->
-        <div class="header">
-            <h1>AGILE PROJECT MANAGEMENT DASHBOARD</h1>
-        </div>
-
-        <!-- Top Bar -->
-        <div class="top-bar">
-            <div class="greeting">
-                
-                <span>Hello, {{ current_user.name }}!</span>
-            
-            <div class="dropdown">
-                <a href="{{ url_for('auth.login')}}"><img src="../static/images/profile.jpg" alt="Profile" class="profile-pic"></a>
-                <div class="dropdown-content">
-                    <a href="/auth/logout" class="logout">Logout</a>
-                </div>
-            </div>
-        </div>
-        </div>
-
-        <!-- Dashboard Content -->
-        <div class="dashboard-content">
-            <!-- Quick Stats Section -->
-            <div class="quick-stats">
-                <div class="stat-card stat-total">
-                    <i class="fas fa-project-diagram"></i>
-                    <div class="stat-card-content">
-                        <h3>Total Projects</h3>
-                        <h3 style="text-align: center;">{{ total_projects }}</h3>
-                    </div>
-                </div>
-                <div class="stat-card stat-distribution">
-                    <i class="fas fa-chart-pie"></i>
-                    <div class="stat-card-content">
-                        <h3>Active Projects</h3>
-                        <h3 style="text-align: center;">{{ active_projects }}</h3>
-                    </div>
-                </div>
-                <div class="stat-card stat-completion">
-                    <i class="fas fa-check-circle"></i>
-                    <div class="stat-card-content">
-                        <h3>On hold Projects</h3>
-                        <h3 style="text-align: center;">{{ on_hold_projects }}</h3>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Projects Section -->
-            <div class="projects-section">
-                <h2>Projects Underway</h2>
-                <a href="/addproject" class="add-project-btn"> <i class="fas fa-plus"></i>Add Project </a>
-                <table class="project-table">
-                    <thead>
-                    <tr>
-                        <th>Project Name</th>
-                        <th>Product Manager</th>
-                        <th>Start Date</th>
-                        <th>End Date</th>
-                        <th>Revised End Date</th>
-                        <th>Status</th>
-                        <th>Actions</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for project in projects %}
-                        <tr>
-                            <td>{{ project.project_name }}</td>
-                            <td>{{ project.product_owner }}</td>
-                            <td>{{ project.start_date }}</td>
-                            <td>{{ project.end_date }}</td>
-                            <td>{{ project.revised_end_date }}</td>
-                            <td>{{ project.status }}</td>
-                            <td class="action-buttons">
-                                <a href="#" class="action-btn view-btn">
-                                    <i class="fas fa-eye"></i> View
-                                </a>
-                                <a href="/editproject/{{ project.project_id }}" class="action-btn edit-btn">
-                                    <i class="fas fa-edit"></i> Edit
-                                </a>
-                            </td>
-        
-                        </tr>
-                        {% endfor %}
-                </tbody>
-                </table>
-            </div>
-        </div>
-
-        <!-- Footer -->
-        <div class="footer">
-            <p>&copy; 2024 Agile Project Management Dashboard | Developed by {{ developer_name }}</p>
-        </div>
+    <link
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="../static/css/dashboard.css" />
+  </head>
+  <body>
+    <div class="role-wrapper">
+      <span class="role-label">Role:</span>
+      <select id="roleSelect" onchange="updateAccess()">
+        <option value="team-member">👤 Team Member</option>
+        <option value="product-owner">📊 Product Owner</option>
+        <option value="scrum-master">🎯 Scrum Master</option>
+      </select>
     </div>
-</body>
+    <div class="dashboard-container">
+      <!-- Header -->
+      <div class="header">
+        <h1>AGILE PROJECT MANAGEMENT DASHBOARD</h1>
+      </div>
+
+      <!-- Top Bar -->
+      <div class="top-bar">
+        <div class="greeting">
+          <span>Hello, {{ user_name }}!</span>
+
+          <div class="dropdown">
+            <a href="{{url_for('auth.login')}}"
+              ><img
+                src="../static/images/profile.jpg"
+                alt="Profile"
+                class="profile-pic"
+            /></a>
+            <div class="dropdown-content">
+              <a href="/logout" class="logout">Logout</a>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Dashboard Content -->
+      <div class="dashboard-content">
+        <!-- Quick Stats Section -->
+        <div class="quick-stats">
+          <div class="stat-card stat-total">
+            <i class="fas fa-project-diagram"></i>
+            <div class="stat-card-content">
+              <h3>Total Projects</h3>
+              <h3 style="text-align: center">{{ total_projects }}</h3>
+            </div>
+          </div>
+          <div class="stat-card stat-distribution">
+            <i class="fas fa-chart-pie"></i>
+            <div class="stat-card-content">
+              <h3>Active Projects</h3>
+              <h3 style="text-align: center">{{ active_projects }}</h3>
+            </div>
+          </div>
+          <div class="stat-card stat-completion">
+            <i class="fas fa-check-circle"></i>
+            <div class="stat-card-content">
+              <h3>On hold Projects</h3>
+              <h3 style="text-align: center">{{ on_hold_projects }}</h3>
+            </div>
+          </div>
+        </div>
+
+        <!-- Projects Section -->
+        <div class="projects-section">
+          <h2>Projects Underway</h2>
+          <a href="/addproject" class="add-project-btn">
+            <i class="fas fa-plus"></i>Add Project
+          </a>
+          <table class="project-table">
+            <thead>
+              <tr>
+                <th>Project Name</th>
+                <th>Product Manager</th>
+                <th>Start Date</th>
+                <th>End Date</th>
+                <th>Revised End Date</th>
+                <th>Status</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for project in projects %}
+              <tr>
+                <td>{{ project.project_name }}</td>
+                <td>{{ project.product_owner }}</td>
+                <td>{{ project.start_date }}</td>
+                <td>{{ project.end_date }}</td>
+                <td>{{ project.revised_end_date }}</td>
+                <td>{{ project.status  }}</td>
+
+                <td class="action-buttons">
+                  <a
+                    href="{{url_for('viewproject', project_id=project.project_id)}}"
+                    class="action-btn view-btn"
+                  >
+                    <i class="fas fa-eye"></i> View
+                  </a>
+                  <a href="{{url_for('edit_project', project_id=project.project_id)}}" class="action-btn edit-btn">
+                    <i class="fas fa-edit"></i> Edit
+                  </a>
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Footer -->
+      <div class="footer">
+        <p>
+          &copy; 2024 Agile Project Management Dashboard | Developed by {{
+          developer_name }}
+        </p>
+      </div>
+    </div>
+
+    <script>
+      function updateAccess() {
+        const role = document.getElementById("roleSelect").value;
+        const addProjectBtn = document.querySelector(".add-project-btn");
+        const viewBtns = document.querySelectorAll(".view-btn");
+        const editBtns = document.querySelectorAll(".edit-btn");
+
+        // Define role-based access
+        const canAddProject = role === "product-owner";
+        const canEditProject =
+          role === "product-owner" || role === "scrum-master";
+        const canViewProject =
+          role === "product-owner" ||
+          role === "scrum-master" ||
+          role === "team-member";
+
+        // Control Add Project button visibility
+        addProjectBtn.classList.toggle("hidden", !canAddProject);
+
+        // Control Edit button visibility
+        editBtns.forEach((btn) => {
+          btn.classList.toggle("hidden", !canEditProject);
+        });
+
+        // Control View button visibility
+        viewBtns.forEach((btn) => {
+          btn.classList.toggle("hidden", !canViewProject);
+        });
+      }
+
+      document.addEventListener("DOMContentLoaded", updateAccess);
+    </script>
+  </body>
 </html>
-
-
-

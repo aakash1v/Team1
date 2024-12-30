@@ -1,8 +1,6 @@
 
 loadDropdowns(); 
-function goBack() {
-    window.history.back();
-}
+
 
 class CustomUserDropdown {
     constructor(dropdownElement) {

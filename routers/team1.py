@@ -258,7 +258,7 @@ def verify_otp():
                 else:
                     print(USER)
                     login_user(USER)
-                    return jsonify({'message': 'Successfully logged in to your account!'}), 201
+                    return redirect(url_for('/')), 201
             else:
                 session['error_message'] = 'Invalid or expired OTP for login.'
                 return redirect(url_for('auth.verify_otp'))  # Correct route here
