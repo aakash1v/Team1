@@ -1,4 +1,4 @@
-from flask import request, jsonify, render_template, redirect, url_for, session, Blueprint, flash
+from flask import request, jsonify, render_template, redirect, url_for, session, Blueprint, flash, current_app
 from datetime import datetime, timedelta
 import password_utils as pw
 import send_mail as sm
@@ -6,42 +6,47 @@ import random
 from models import Users
 from database import db
 from flask_login import LoginManager, login_user, login_required, logout_user, current_user
-from functools import wraps
+
 USER =""
 
 login_manager = LoginManager()
+# In-memory session tracking
 
 @login_manager.user_loader
 def load_user(user_id):
     return Users.query.get(int(user_id))
+
+user_sessions = {}
+
+def track_login(sender, user):
+    user.login_time = datetime.now()  # Set login time to current time
+    try:
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error committing to the database: {e}")
+    print(f"User {user.UserID} logged in at {user.login_time}")
+
+# Track logout time
+def track_logout(sender, user):
+    if user.login_time:
+        logout_time = datetime.now()  # Set logout time to current time
+        user.logout_time = logout_time  # Update logout time in the user record
+        db.session.commit()  # Save logout time to the database
+
+        session_duration = logout_time - user.login_time  # Calculate session duration
+        print(f"User {user.UserID} logged out at {logout_time}")
+        print(f"Session duration: {session_duration}")
 
 def otp_generator():
     return random.randint(100000, 999999)
 
 login_bp = Blueprint('auth', __name__)  
 
-def role_required(required_roles):
-    """
-    A decorator to restrict access to specific roles.
-    Args:
-    - required_roles (list): List of allowed roles for the route.
-    Usage:
-    @role_required(['admin', 'editor'])
-    """
-    def decorator(func):
-        @wraps(func)
-        def wrapper(*args, **kwargs):
-            if current_user.is_authenticated and current_user.role in required_roles:
-                return func(*args, **kwargs)
-            else:
-                flash("You do not have permission to access this page.", "danger")
-                return redirect(url_for('login'))  # Redirect to login or another page
-        return wrapper
-    return decorator
 
 # Admin Dashboard - Delete User
-@login_required
 @login_bp.route('/delete_user/<int:user_id>', methods=['POST'])
+@login_required
 def delete_user(user_id):
     user = Users.query.get_or_404(user_id)
     db.session.delete(user)
@@ -51,8 +56,8 @@ def delete_user(user_id):
 
 
 # Admin Dashboard - Update Approval
-@login_required
 @login_bp.route('/update_approval/<int:user_id>', methods=['POST'])
+@login_required
 def update_approval(user_id):
     user = Users.query.get_or_404(user_id)
     approved = 'approved' in request.form  # Check if checkbox is checked
@@ -62,11 +67,15 @@ def update_approval(user_id):
     return redirect(url_for('auth.admin_dashboard'))  
 
 # Admin Dashboard Route
-@role_required(['admin'])
 @login_bp.route('/admin_dashboard')
+@login_required
 def admin_dashboard():
-    users = Users.query.all()
-    return render_template('admin_dashboard.html', users=users)
+    print(current_user.Role)
+    if current_user.Role == 'admin':
+        users = Users.query.all()
+        return render_template('admin_dashboard.html', users=users)
+    else:
+        return jsonify({'error': "u don't have access to this page....."})
 
 # User Registration
 @login_bp.route('/add_user', methods=['POST', 'GET'])
@@ -151,7 +160,7 @@ def login():
 @login_required
 def logout():
     logout_user()
-    return redirect(url_for('login'))
+    return redirect(url_for('auth.login'))
 
 
 # OTP Resend
@@ -253,12 +262,12 @@ def verify_otp():
                 session.pop('otp')
                 session.pop('otp_expiry')
                 if session.get('role') == 'admin':
-                    # login_user(session['user'])
+                    login_user(USER)
                     return redirect(url_for('auth.admin_dashboard'))  # Redirect to Admin Dashboard
                 else:
                     print(USER)
                     login_user(USER)
-                    return redirect(url_for('/')), 201
+                    return render_template('Dashboard.html')
             else:
                 session['error_message'] = 'Invalid or expired OTP for login.'
                 return redirect(url_for('auth.verify_otp'))  # Correct route here

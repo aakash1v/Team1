@@ -1,5 +1,5 @@
 from flask import Flask, redirect, url_for, render_template, flash, jsonify, request
-from routers.team1 import login_bp, login_manager  # Import the auth blueprint
+from routers.team1 import login_bp, login_manager,track_login, track_logout  # Import the auth blueprint
 from database import db  # Import the db instance
 import os
 from models import (
@@ -13,6 +13,7 @@ from models import (
 )
 from datetime import datetime
 import send_mail as sm
+from flask_login import user_logged_in, user_logged_out
 
 
 app = Flask(__name__)
@@ -30,11 +31,17 @@ os.makedirs(app.instance_path, exist_ok=True)
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 app.config["SQLALCHEMY_ECHO"] = True
 
+# Connect signals
+user_logged_in.connect(track_login, app)
+user_logged_out.connect(track_logout, app)
+
+
 # Initialize extensions
 db.init_app(app)
 
 # Register the auth blueprint with the url_prefix 'auth'
 app.register_blueprint(login_bp, url_prefix="/auth")
+
 
 
 # Create tables if necessary
@@ -65,7 +72,6 @@ def projects():
         }
         for project in projects_data
     ]
-    print(projects)
     return render_template(
         "Dashboard.html",
         projects=projects,
@@ -74,216 +80,6 @@ def projects():
         on_hold_projects=on_hold_projects,
         user_name=user_name
     )
-
-# # Submission of Form
-# @app.route("/submit", methods=["POST"])
-# def submit_project_data():
-#     try:
-#         data = request.json
-
-#         # Validate Product Owner ID
-#         if not data.get("product_owner_id") or not isinstance(
-#             data["product_owner_id"], int
-#         ):
-#             flash("Valid Product Owner ID is required.", "error")
-#             return redirect(request.referrer)
-#         product_owner = ProductOwner.query.get(data["product_owner_id"])
-#         if not product_owner:
-#             flash("Product Owner not found.", "error")
-#             return redirect(request.referrer)
-
-#         # Validate Project Name
-#         if not data.get("project_name") or len(data["project_name"].strip()) == 0:
-#             flash("Project Name is required.", "error")
-#             return redirect(request.referrer)
-
-#         # Validate Project Description
-#         if (
-#             not data.get("project_description")
-#             or len(data["project_description"].strip()) == 0
-#         ):
-#             flash("Project Description is required.", "error")
-#             return redirect(request.referrer)
-
-#         # Validate Dates
-#         try:
-#             start_date = datetime.strptime(data["start_date"], "%Y-%m-%d").date()
-#             end_date = datetime.strptime(data["end_date"], "%Y-%m-%d").date()
-#             revised_end_date = (
-#                 datetime.strptime(data["revised_end_date"], "%Y-%m-%d").date()
-#                 if data.get("revised_end_date")
-#                 else None
-#             )
-#         except ValueError:
-#             flash("Invalid date format. Use YYYY-MM-DD.", "error")
-#             return redirect(request.referrer)
-
-#         if start_date >= end_date:
-#             flash("Start date cannot be greater than or equal to end date.", "error")
-#             return redirect(request.referrer)
-
-#         # Validate Status
-#         if data.get("status") not in ["Active", "Completed", "On Hold", "Cancelled"]:
-#             flash(
-#                 "Invalid status. Must be one of: Active, Completed, or Pending.",
-#                 "error",
-#             )
-#             return redirect(request.referrer)
-
-#         # Add Project
-#         new_project = ProjectDetails(
-#             ProductOwnerId=data["product_owner_id"],
-#             ProjectName=data["project_name"],
-#             ProjectDescription=data["project_description"],
-#             StartDate=start_date,
-#             EndDate=end_date,
-#             RevisedEndDate=revised_end_date,
-#             Status=data["status"],
-#         )
-#         db.session.add(new_project)
-#         db.session.commit()
-
-#         # Validate Selected User IDs
-#         if not data.get("selected_user_ids"):
-#             flash("At least one user must be selected.", "error")
-#             return redirect(request.referrer)
-
-#         selected_user_ids = data["selected_user_ids"].split(",")
-#         user_emails = []
-
-#         for user_id in selected_user_ids:
-#             if not user_id.isdigit():
-#                 flash(f"Invalid User ID: {user_id}.", "error")
-#                 return redirect(request.referrer)
-#             user = Users.query.get(int(user_id))
-#             if not user:
-#                 flash(f"User with ID {user_id} not found.", "error")
-#                 return redirect(request.referrer)
-#             user_emails.append(user.Email)
-#             new_project_user = ProjectUsers(
-#                 UserID=user.UserID, ProjectId=new_project.ProjectId
-#             )
-#             db.session.add(new_project_user)
-
-#         # Send emails to product owner and team members
-#         sm.send_emails_to_users(
-#             [product_owner.Email] + user_emails,
-#             data["project_name"],
-#             data["project_description"],
-#             ["Product Owner"] + ["Team Member"] * len(user_emails),
-#         )
-
-#         # Validate and Add Sprints
-#         for i, sprint in enumerate(data["sprints"], start=1):
-#             try:
-#                 sprint_start_date = datetime.strptime(
-#                     sprint["start_date"], "%Y-%m-%d"
-#                 ).date()
-#                 sprint_end_date = datetime.strptime(
-#                     sprint["end_date"], "%Y-%m-%d"
-#                 ).date()
-#             except ValueError:
-#                 flash(f"Invalid date format for Sprint {i}. Use YYYY-MM-DD.", "error")
-#                 return redirect(request.referrer)
-
-#             if sprint_start_date >= sprint_end_date:
-#                 flash(
-#                     f"Sprint {i} start date cannot be greater than or equal to the end date.",
-#                     "error",
-#                 )
-#                 return redirect(request.referrer)
-
-#             if not sprint.get("scrum_master_id") or not isinstance(
-#                 sprint["scrum_master_id"], int
-#             ):
-#                 flash(f"Valid Scrum Master ID is required for Sprint {i}.", "error")
-#                 return redirect(request.referrer)
-#             scrum_master = ScrumMasters.query.get(sprint["scrum_master_id"])
-#             if not scrum_master:
-#                 flash(
-#                     f"Scrum Master with ID {sprint['scrum_master_id']} not found.",
-#                     "error",
-#                 )
-#                 return redirect(request.referrer)
-
-#             new_sprint = SprintCalendar(
-#                 ProjectId=new_project.ProjectId,
-#                 SprintNo=i,
-#                 ScrumMasterID=sprint["scrum_master_id"],
-#                 StartDate=sprint_start_date,
-#                 EndDate=sprint_end_date,
-#                 Velocity=sprint.get("velocity", 0),
-#             )
-#             db.session.add(new_sprint)
-#             db.session.commit()
-
-#             # Validate and Add User Stories
-#             for j, story in enumerate(sprint["user_stories"], start=1):
-#                 if (
-#                     not story.get("description")
-#                     or len(story["description"].strip()) == 0
-#                 ):
-#                     flash(
-#                         f"Description is required for User Story {j} in Sprint {i}.",
-#                         "error",
-#                     )
-#                     return redirect(request.referrer)
-#                 if not story.get("planned_sprint") or not isinstance(
-#                     story["planned_sprint"], int
-#                 ):
-#                     flash(
-#                         f"Valid Planned Sprint is required for User Story {j} in Sprint {i}.",
-#                         "error",
-#                     )
-#                     return redirect(request.referrer)
-#                 if not story.get("actual_sprint") or not isinstance(
-#                     story["actual_sprint"], int
-#                 ):
-#                     flash(
-#                         f"Valid Actual Sprint is required for User Story {j} in Sprint {i}.",
-#                         "error",
-#                     )
-#                     return redirect(request.referrer)
-#                 if story.get("moscow") not in [
-#                     "Must Have",
-#                     "Should Have",
-#                     "Could Have",
-#                     "Won't Have",
-#                 ]:
-#                     flash(
-#                         f"Invalid MoSCoW priority for User Story {j} in Sprint {i}.",
-#                         "error",
-#                     )
-#                     return redirect(request.referrer)
-#                 if not story.get("assignee"):
-#                     flash(
-#                         f"Assignee is required for User Story {j} in Sprint {i}.",
-#                         "error",
-#                     )
-#                     return redirect(request.referrer)
-
-#                 new_story = UserStories(
-#                     ProjectId=new_project.ProjectId,
-#                     SprintId=new_sprint.SprintId,
-#                     PlannedSprint=story["planned_sprint"],
-#                     ActualSprint=story["actual_sprint"],
-#                     Description=story["description"],
-#                     StoryPoint=story.get("story_points", 0),
-#                     MOSCOW=story["moscow"],
-#                     Assignee=story["assignee"],
-#                     Status=story.get("status", "Pending"),
-#                 )
-#                 db.session.add(new_story)
-
-#         db.session.commit()
-#         flash("Project, sprints, and user stories added successfully.", "success")
-#         return jsonify({"message": "Project added successfully."}), 201
-
-#     except Exception as e:
-#         db.session.rollback()
-#         flash(f"An error occurred: {str(e)}", "error")
-#         return redirect(request.referrer)
-
 
 
 @app.route("/api/product_owners", methods=["GET"])
@@ -610,7 +406,6 @@ def viewproject(project_id):
 def submit_project_data():
     try:
         data = request.json
-        print(data)
 
         # Convert date strings to Python datetime.date objects
         start_date = datetime.strptime(data['start_date'], '%Y-%m-%d').date()

@@ -75,14 +75,21 @@ class Users(db.Model, UserMixin):
     Name = db.Column(db.String(255), nullable=False)
     Approved = db.Column(db.Boolean, default=False)
     DOB = db.Column(db.Date,nullable=True)
+    login_time = db.Column(db.DateTime, nullable=True)
+    logout_time = db.Column(db.DateTime, nullable=True)
 
+    def get_id(self):
+        return str(self.UserID)
 
     # Relationships
     tasks = db.relationship('Tasks', backref='assigned_user', lazy=True)
     roles = db.relationship('UserRoles', backref='user', lazy=True)
 
     def __repr__(self):
-        return f"<Users {self.Username}>"
+        return f"<Users {self.UserName}>"
+        # Override the get_id method
+
+
 
 # Tasks Table
 class Tasks(db.Model):
