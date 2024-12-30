@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Admin Dashboard</title>
-    <link rel="stylesheet" href="../static/admin_dashboard.css">
+    <link rel="stylesheet" href="../static/css/admin_dashboard.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/4.5.2/css/bootstrap.min.css">
 </head>
 <body>
@@ -40,7 +40,7 @@
                     <td>{{ user.Role }}</td>
                     <td>
                         <form method="POST" action="{{ url_for('auth.update_approval', user_id=user.UserID) }}">
-                            <input type="checkbox" name="approved" {{ 'checked' if user.approved else '' }}
+                            <input type="checkbox" name="approved" {{ 'checked' if user.Approved else '' }}
                                 onchange="this.form.submit()">
                         </form>
                     </td>

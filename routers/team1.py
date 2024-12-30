@@ -1,43 +1,68 @@
-from flask import request, jsonify, render_template, redirect, url_for, session, Blueprint
+from flask import request, jsonify, render_template, redirect, url_for, session, Blueprint, flash
 from datetime import datetime, timedelta
 import password_utils as pw
 import send_mail as sm
 import random
 from models import Users
 from database import db
+from flask_login import LoginManager, login_user, login_required, logout_user, current_user
+from functools import wraps
+USER =""
 
+login_manager = LoginManager()
+
+@login_manager.user_loader
+def load_user(user_id):
+    return Users.query.get(int(user_id))
 
 def otp_generator():
     return random.randint(100000, 999999)
 
-login_bp = Blueprint('auth', __name__)
+login_bp = Blueprint('auth', __name__)  
+
+def role_required(required_roles):
+    """
+    A decorator to restrict access to specific roles.
+    Args:
+    - required_roles (list): List of allowed roles for the route.
+    Usage:
+    @role_required(['admin', 'editor'])
+    """
+    def decorator(func):
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            if current_user.is_authenticated and current_user.role in required_roles:
+                return func(*args, **kwargs)
+            else:
+                flash("You do not have permission to access this page.", "danger")
+                return redirect(url_for('login'))  # Redirect to login or another page
+        return wrapper
+    return decorator
 
 # Admin Dashboard - Delete User
+@login_required
 @login_bp.route('/delete_user/<int:user_id>', methods=['POST'])
 def delete_user(user_id):
     user = Users.query.get_or_404(user_id)
-    if session.get('role') == "admin":
-        db.session.delete(user)
-        db.session.commit()
-        sm.user_deleted(user.Email, user)
-        return redirect(url_for('auth.admin_dashboard'))  # Use 'auth' prefix here
-    else:
-        return jsonify({'error': "You don't have enough rights.."}), 400
+    db.session.delete(user)
+    db.session.commit()
+    sm.user_deleted(user.Email, user)
+    return redirect(url_for('auth.admin_dashboard'))  
+
 
 # Admin Dashboard - Update Approval
+@login_required
 @login_bp.route('/update_approval/<int:user_id>', methods=['POST'])
 def update_approval(user_id):
     user = Users.query.get_or_404(user_id)
-    if session.get('role') == "admin":
-        approved = 'approved' in request.form  # Check if checkbox is checked
-        user.approved = approved
-        db.session.commit()
-        sm.user_approved(user.Email, user)
-        return redirect(url_for('auth.admin_dashboard'))  # Use 'auth' prefix here
-    else:
-        return jsonify({'error': "You don't have enough rights to make changes.."}), 400
+    approved = 'approved' in request.form  # Check if checkbox is checked
+    user.Approved = approved
+    db.session.commit()
+    sm.user_approved(user.Email, user)
+    return redirect(url_for('auth.admin_dashboard'))  
 
 # Admin Dashboard Route
+@role_required(['admin'])
 @login_bp.route('/admin_dashboard')
 def admin_dashboard():
     users = Users.query.all()
@@ -50,7 +75,7 @@ def add_user():
         # Retrieving form data
         username = request.form['username']
         email = request.form['email']
-        name = request.form['username']  # Assuming the user's name is the same as the username 
+        name = request.form['name']  
         password = request.form['password']
         dob = request.form['dob']
         role = request.form.get('role')  # Optional field
@@ -70,14 +95,15 @@ def add_user():
             DOB=dob,
             Role=role,
             PhoneNumber=phone_number,
-            approved=approved
+            Approved=approved
         )
 
         # Add and commit the new user to the database
         try:
             db.session.add(new_user)
             db.session.commit()
-            sm.approval_status_mail(email, username)
+            if role != "admin":
+                sm.approval_status_mail(email, username)
             return jsonify({'message': 'User added successfully!'}), 201
         except Exception as e:
             db.session.rollback()
@@ -85,18 +111,19 @@ def add_user():
 
     return render_template('signup.html')
 
-# User Login
+###  User Login
 @login_bp.route('/', methods=['GET', 'POST'])
 def login():
+    global USER
     if request.method == 'POST':
         username = request.form['username']
         password = request.form['password']
 
         # Query the database to find a user by username
         user = Users.query.filter_by(UserName=username).first()
-
+        USER = user
         if user and pw.verify_password(password, user.Password.encode('utf-8')):
-            if not user.approved and user.Role != 'admin':
+            if not user.Approved and user.Role != 'admin':
                 session['error_message'] = "Your account is not approved by the admin."
                 return redirect(url_for('auth.login'))
             session.pop('error_message', None)  # Clear any previous error messages
@@ -105,7 +132,7 @@ def login():
 
             session['otp'] = otp
             session['otp_expiry'] = (datetime.now() + timedelta(minutes=5)).isoformat()
-            session['user'] = username
+            session['username'] = user.UserName
             session['role'] = user.Role
             return redirect(url_for('auth.verify_otp'))
 
@@ -117,6 +144,15 @@ def login():
     # Retrieve the error message from session (if any)
     error_message = session.pop('error_message', None)
     return render_template('login.html', error_message=error_message)
+
+#### Logout
+
+@login_bp.route('/logout')
+@login_required
+def logout():
+    logout_user()
+    return redirect(url_for('login'))
+
 
 # OTP Resend
 @login_bp.route('/resend_otp', methods=['POST'])
@@ -217,8 +253,11 @@ def verify_otp():
                 session.pop('otp')
                 session.pop('otp_expiry')
                 if session.get('role') == 'admin':
+                    # login_user(session['user'])
                     return redirect(url_for('auth.admin_dashboard'))  # Redirect to Admin Dashboard
                 else:
+                    print(USER)
+                    login_user(USER)
                     return jsonify({'message': 'Successfully logged in to your account!'}), 201
             else:
                 session['error_message'] = 'Invalid or expired OTP for login.'
