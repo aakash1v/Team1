@@ -20,7 +20,7 @@
         {% endif %}
 
         <!-- User Table -->
-        <table>
+        <table class="table table-striped">
             <thead>
                 <tr>
                     <th>User ID</th>
@@ -39,14 +39,14 @@
                     <td>{{ user.Email }}</td>
                     <td>{{ user.Role }}</td>
                     <td>
-                        <form method="POST" action="{{ url_for('update_approval', user_id=user.UserID) }}">
+                        <form method="POST" action="{{ url_for('auth.update_approval', user_id=user.UserID) }}">
                             <input type="checkbox" name="approved" {{ 'checked' if user.approved else '' }}
                                 onchange="this.form.submit()">
                         </form>
                     </td>
                     <td>
-                        <form method="POST" action="{{ url_for('delete_user', user_id=user.UserID) }}">
-                            <button type="submit">Delete</button>
+                        <form method="POST" action="{{ url_for('auth.delete_user', user_id=user.UserID) }}">
+                            <button type="submit" class="btn btn-danger">Delete</button>
                         </form>
                     </td>
                 </tr>

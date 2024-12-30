@@ -8,7 +8,7 @@
 </head>
 <body>
     <div class="wrapper">
-        <form action="/verify_otp" method="POST">
+        <form action="{{ url_for('auth.verify_otp') }}" method="POST">
             <h1>Verify OTP</h1>
             <div class="input-box">
                 <input type="text" placeholder="Enter OTP" name="otp" required>
@@ -19,7 +19,7 @@
             <br>
             <button type="submit" class="btn">Verify</button>
         </form>
-        <form action="/resend_otp" method="POST" style="margin-top: 10px;">
+        <form action="{{ url_for('auth.resend_otp') }}" method="POST" style="margin-top: 10px;">
             <button type="submit" class="btn">Resend OTP</button>
         </form>
     </div>
