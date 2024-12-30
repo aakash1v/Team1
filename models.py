@@ -65,7 +65,7 @@ class ScrumMasters(db.Model):
 # Users Table
 class Users(db.Model):
     __tablename__ = 'users'
-    UserID = db.Column(db.Integer, primary_key=True)
+    UserID = db.Column(db.Integer, primary_key=True, autoincrement=True)
     UserName = db.Column(db.String(50), nullable=False)
     Password = db.Column(db.String(100), nullable=False)
     Email = db.Column(db.String(100), unique=True, nullable=False)
@@ -80,7 +80,7 @@ class Users(db.Model):
     roles = db.relationship('UserRoles', backref='user', lazy=True)
 
     def __repr__(self):
-        return f"<Users {self.UserName}>"  # Fixed typo
+        return f"<Users {self.UserName}>"
 
 # Tasks Table
 class Tasks(db.Model):
@@ -124,3 +124,18 @@ class UserStories(db.Model):
 
     def __repr__(self):
         return f"<UserStories {self.Description[:20]}>"
+
+# ProjectUsers Table
+class ProjectUsers(db.Model):
+    __tablename__ = 'ProjectUsers'
+
+    UserID = db.Column(db.Integer, db.ForeignKey('users.UserID'), primary_key=True, nullable=False)
+    ProjectId = db.Column(db.Integer, db.ForeignKey('project_details.ProjectId'), primary_key=True, nullable=False)
+
+    # Relationships (optional, for convenience in accessing related objects)
+    user = db.relationship('Users', backref='project_associations')
+    project = db.relationship('ProjectDetails', backref='user_associations')
+
+    def __repr__(self):
+        return f"<ProjectUsers(UserID={self.UserID}, ProjectId={self.ProjectId})>"
+
