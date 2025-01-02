@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Login and Logout History</title>
+    
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.6.2/dist/css/bootstrap.min.css" integrity="sha384-xOolHFLEh07PJGoPkLv1IbcEPTNtaed2xpHsD9ESMhqIYd0nLMwNLD69Npy4HI+N" crossorigin="anonymous">
+
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        margin: 20px;
+        background-color: #f4f4f9;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 20px;
+      }
+      th,
+      td {
+        padding: 12px;
+        text-align: left;
+        border: 1px solid #ddd;
+      }
+      th {
+        background-color: #4caf50;
+        color: white;
+      }
+      tr:nth-child(even) {
+        background-color: #f2f2f2;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>
+      User Login and Logout History <a href="{{url_for('auth.admin_dashboard')}}" class="btn btn-outline-secondary">Admin Dashboard</a>
+
+    </h1> 
+    <table>
+      <thead>
+        <tr>
+          <th>User_id</th>
+          <th>Username</th>
+          <th>Action</th>
+          <th>Timestamp</th>
+          <th>IP Address</th>
+        </tr>
+      </thead>
+      <tbody id="historyTable">
+        {% for record in history %}
+        <tr>
+          <td>{{ record.id }}</td>
+          <td>{{ record.username }}</td>
+          <td>{{ record.action }}</td>
+          <td>{{ record.timestamp }}</td>
+          <td>{{ record.ip_address }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+
+    {% if history|length == 0 %}
+    <p>No history available</p>
+    {% endif %}
+  </body>
+</html>

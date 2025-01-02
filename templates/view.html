@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Project User Stories & Sprint Calendar</title>
+    <link rel="stylesheet" href="../static/css/view.css"> 
+</head>
+<body>
+
+<!-- Header Section -->
+<div class="header">
+    AGILE PROJECT MANAGEMENT DASHBOARD
+</div>
+
+<!-- Footer Section -->
+<div class="footer">
+    &copy; 2024 Agile Project Management Dashboard. All Rights Reserved.
+</div>
+
+</body>
+</html>
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>User Stories and Sprint Calendar for Project: {{ project.ProjectName }}</h1>
+
+    <!-- User Stories Table -->
+    <div class="table-header">User Stories</div>
+    <table>
+        <thead>
+            <tr>
+                <th>User Story ID</th>
+                <th>Description</th>
+                <th>Status</th>
+                <th>Assigned To</th>
+                <th>Sprint</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% if userstories %}
+                {% for story in userstories %}
+                    <tr>
+                        <td>{{ story.us_id }}</td>
+                        <td>{{ story.description }}</td>
+                        <td>
+                            <span class="status {% if story.status == 'Completed' %}completed{% elif story.status == 'In Progress' %}in-progress{% else %}planned{% endif %}">
+                                {{ story.status }}
+                            </span>
+                        </td>
+                        <td>{{ story.assignee }}</td>
+                        <td>{{ story.sprint }}</td>
+                    </tr>
+                {% endfor %}
+            {% else %}
+                <tr>
+                    <td colspan="5" class="no-data">
+                        No user stories found for this project.
+                    </td>
+                </tr>
+            {% endif %}
+        </tbody>
+    </table>
+
+    <!-- Sprint Calendar Table -->
+    <div class="table-header">Sprint Calendar</div>
+    <table>
+        <thead>
+            <tr>
+                <th>Sprint Number</th>
+                <th>Start Date</th>
+                <th>End Date</th>
+                <th>Velocity</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% if sprints %}
+                {% for sprint in sprints %}
+                    <tr>
+                        <td>{{ sprint.sprint_no }}</td>
+                        <td>{{ sprint.start_date }}</td>
+                        <td>{{ sprint.end_date }}</td>
+                        <td>{{ sprint.velocity }}</td>
+                    </tr>
+                {% endfor %}
+            {% else %}
+                <tr>
+                    <td colspan="4" class="no-data">
+                        No sprint calendar data found for this project.
+                    </td>
+                </tr>
+            {% endif %}
+        </tbody>
+    </table>
+</div>
+<a href="{{ url_for('summary') }}" 
+   class="btn btn-primary mb-4" 
+   style="color: white; background-color: blue; padding: 10px 20px; text-decoration: none; border-radius: 5px;">
+   View summary
+</a>
+<br>
+<div class="dashboard-container">
+      <div class="card">
+        <h3>Burn Down Chart</h3>
+        <img
+          src="data:image/png;base64,{{ burn_down_url }}"
+          class="img-fluid rounded"
+          alt="Burn-Down Chart"
+        />
+      </div>
+      <div class="card">
+        <h3>Burn Up Chart</h3>
+        <img
+          src="data:image/png;base64,{{ burn_up_url }}"
+          class="img-fluid rounded"
+          alt="Burn-Up Chart"
+        />
+      </div>
+      <div class="card">
+        <h3>Velocity Trend</h3>
+        <img
+          src="data:image/png;base64,{{ velocity_chart_url }}"
+          class="img-fluid rounded"
+          alt="Velocity Chart"
+        />
+      </div>
+      <div class="card">
+        <h3>Sprint Status</h3>
+        <img
+          src="data:image/png;base64,{{ sprint_progress_url }}"
+          class="img-fluid rounded"
+          alt="Sprint Progress Chart"
+        />
+      </div>
+      <div class="card">
+        <h3>Task Status</h3>
+        <img
+          src="data:image/png;base64,{{ donut_chart_url }}"
+          class="img-fluid rounded"
+          alt="Donut Chart"
+        />
+      </div>
+      <div class="card">
+        <h3>Performance chart</h3>
+        <img
+          src="data:image/png;base64,{{ performance_chart_url }}"
+          class="img-fluid rounded"
+          alt="performance Chart"
+        />
+      </div>
+    </div>
+    
+</body>
+</html>
