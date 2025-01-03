@@ -42,10 +42,45 @@
       }
 
       .navbar .logo img {
-        height: 50px;
+        height: 60px;
         width: auto;
-        border-radius: 5px;
+        border-radius: 28px;
+        padding: 1px 2px;
+        animation: logoPulse 3s infinite ease-in-out;
+        background: linear-gradient(45deg, #1e90ff, #ff6347); /* Gradient background */
+        border: 2px solid transparent; /* Invisible border for hover effect */
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2), 0 0 15px rgba(10, 57, 102, 0.4);
+       transition: transform 0.4s ease, box-shadow 0.3s ease, border-color 0.3s ease;
+
       }
+      @keyframes logoPulse {
+        0% {
+          transform: translateY(0) scale(1);
+          box-shadow: 0 0 10px rgba(10, 57, 102, 0.5);
+          border-color: rgb(243, 243, 248);
+        }
+        25% {
+          transform: translateY(-5px) scale(1.05);
+          box-shadow: 0 0 20px rgba(10, 57, 102, 0.7);
+          border-color: rgba(10, 57, 102, 0.8);
+        }
+        50% {
+          transform: translateY(0) scale(1);
+          box-shadow: 0 0 15px rgba(10, 57, 102, 0.6);
+          border-color: rgb(243, 243, 248);
+        }
+        75% {
+          transform: translateY(5px) scale(0.95);
+          box-shadow: 0 0 12px rgba(10, 57, 102, 0.4);
+          border-color: rgba(243, 243, 248, 0.6);
+        }
+        100% {
+          transform: translateY(0) scale(1);
+          box-shadow: 0 0 10px rgba(10, 57, 102, 0.5);
+          border-color: rgb(243, 243, 248);
+        }
+      }
+    
 
       .navbar .slogan h1 {
         margin: 0;
@@ -67,10 +102,10 @@
   <body>
     <nav class="navbar">
       <div class="logo">
-        <img src="../static/images/logo3.png" alt="Logo" />
+        <img src="../static/images/logo2.png" alt="Logo" />
       </div>
       <div class="slogan">
-        <h1 class="agu-display ">"Swift Access, Seamless Progress !"</h1>
+        <h1 class="agu-display">"Swift Access, Seamless Progress !"</h1>
       </div>
     </nav>
     <div class="wrapper">

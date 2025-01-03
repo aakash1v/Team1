@@ -12,10 +12,13 @@
   <body>
     <div class="container mt-5">
       <h2>Admin Dashboard</h2>
-      <p>
-        Welcome, {{ current_user.UserName }}! You are logged in as an Admin.
-      </p>
-
+      <div class="admin-container">
+        <p>
+          Welcome, {{ current_user.UserName }}! You are logged in as an Admin.
+        </p>
+        <img src="{{url_for('static',filename=current_user.profile_picture)}}" alt="" class="admin-pic">
+        
+      </div>
       <!-- Logout Button -->
       <form method="POST" action="{{ url_for('auth.logout') }}">
         <button type="submit" class="btn btn-secondary">Logout</button>
