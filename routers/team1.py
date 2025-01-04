@@ -157,8 +157,11 @@ def add_user():
         try:
             db.session.add(new_user)
             db.session.commit()
+            admins = db.session.execute(db.select(Users).where(Users.Role == "admin")).scalars().all()
             if role != "admin":
-                sm.approval_status_mail(email, username)
+                for admin in admins:
+                    ## sending mail to admin for approval...
+                    sm.sending_approval_req(admin, new_user)
             return jsonify({'message': 'User added successfully!'}), 201
         except Exception as e:
             db.session.rollback()

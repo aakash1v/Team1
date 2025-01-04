@@ -1,6 +1,7 @@
 import smtplib
 from email.mime.text import MIMEText
 from email.message import EmailMessage
+from database import db
 
 # sender_email = "sukheshdasari@gmail.com"
 # sender_password = "drer ssxn yxuk xwlz"  
@@ -24,21 +25,6 @@ def send_otp_email(email, otp):
     except Exception as e:
         print(f'Error sending email: {str(e)}')
     
-def approval_status_mail(email, name):
-    subject = f'Hi, {name}  '
-    body = f'{name} , Your registration is not approved by Admin. \nWait till admin approval after that u can login to ur account.\n\nor u can contact admin...\nThank YOu..'
-
-    msg = MIMEText(body)
-    msg['Subject'] = subject
-    msg['From'] = SENDER_EMAIL
-    msg['To'] = email
-
-    try:
-        with smtplib.SMTP_SSL('smtp.gmail.com', 465) as server:
-            server.login(SENDER_EMAIL, SENDER_PASSWORD)
-            server.sendmail(SENDER_EMAIL, email, msg.as_string())
-    except Exception as e:
-        print(f'Error sending email: {str(e)}')
 
 
 ### USER deletion or approval..
@@ -74,7 +60,23 @@ def user_approved(email, user):
     except Exception as e:
         print(f'Error sending email: {str(e)}') 
 
+#### Sending mail to admin ....
+def sending_approval_req(admin, user):
+    subject = f'{user.Name} has signed up '
+    body = f'{admin.Name},\nA new user {user.Name} with {user.UserID} is signed up. \nPlease approve their registration so that he can access the Dashboard.'
 
+    print(body)
+    msg = MIMEText(body)
+    msg['Subject'] = subject
+    msg['From'] = SENDER_EMAIL
+    msg['To'] = admin.Email
+
+    try:
+        with smtplib.SMTP_SSL('smtp.gmail.com', 465) as server:
+            server.login(SENDER_EMAIL, SENDER_PASSWORD)
+            server.sendmail(SENDER_EMAIL, admin.Email, msg.as_string())
+    except Exception as e:
+        print(f'Error sending email: {str(e)}')
 
 ####  TEAM 2 ...
 
