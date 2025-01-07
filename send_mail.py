@@ -63,7 +63,7 @@ def user_approved(email, user):
 #### Sending mail to admin ....
 def sending_approval_req(admin, user):
     subject = f'{user.Name} has signed up '
-    body = f'{admin.Name},\nA new user {user.Name} with {user.UserID} is signed up. \nPlease approve their registration so that he can access the Dashboard.'
+    body = f'{admin.Name},\nA new user {user.Name} with user id - {user.UserID} is signed up. \nPlease approve their registration so that he can access the Dashboard.'
 
     print(body)
     msg = MIMEText(body)
