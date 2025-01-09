@@ -9,7 +9,11 @@ from flask_login import LoginManager, login_user, login_required, logout_user, c
 import os
 import csv
 from werkzeug.utils import secure_filename
-
+import pandas as pd
+import matplotlib.pyplot as plt
+import io
+import base64
+import seaborn as sns
 
 
 USER =""
@@ -43,7 +47,7 @@ def otp_generator():
 if not os.path.exists(CSV_FILE):
     with open(CSV_FILE, mode='w', newline='') as file:
         writer = csv.writer(file)
-        writer.writerow(["User ID","Username", "Action", "Timestamp", "IP Address"])  # Header row
+        writer.writerow(["User ID","Username", "Role", "Action", "Timestamp", "IP Address"])  # Header row
 
 # Function to log actions to CSV
 def log_to_csv(user_id, action):
@@ -53,7 +57,7 @@ def log_to_csv(user_id, action):
         writer = csv.writer(file)
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         ip_address = request.remote_addr or "Unknown"
-        writer.writerow([user_id, user.UserName, action, timestamp, ip_address])
+        writer.writerow([user_id, user.UserName, user.Role, action, timestamp, ip_address])
 
 # Function to read records from the CSV file
 def get_history_from_csv(user_id):
@@ -65,6 +69,7 @@ def get_history_from_csv(user_id):
                 history.append({
                     'id': row['User ID'],
                     'username': row['Username'],
+                    'role': row['Role'],
                     'action': row['Action'],
                     'timestamp': row['Timestamp'],
                     'ip_address': row['IP Address']
@@ -330,18 +335,71 @@ def reset_password():
             return jsonify({'error': 'Session expired. Start the process again.'}), 400
 
         # Update the password in the database
-        user = Users.query.filter_by(Email=email).first()
+        user = db.session.execute(db.select(Users).where(Users.Email == email)).scalar()
+        user_id = user.UserID
         if not user:
             return jsonify({'error': 'User not found.'}), 404
-
+        
         hashed_password = pw.hash_password(new_password)
         user.Password = hashed_password.decode('utf-8')
         db.session.commit()
 
         session.pop('reset_email')
-        return jsonify({'message': 'Password reset successfully!'}), 200
+        return jsonify({'message': f'Hi, {user.Name} ur Password reset successfully! for {user_id}'}), 200
 
     error_message = session.pop('error_message', None)
     return render_template('reset_password.html', error_message=error_message)
 
 
+### Visulization...
+
+@login_bp.route('/charts')
+def charts():
+    # Read the CSV file (ensure it's in the same directory as your app or provide the full path)
+    df = pd.read_csv('user_history2.csv')
+
+    # Convert Timestamp to datetime
+    df['Timestamp'] = pd.to_datetime(df['Timestamp'])
+
+    # Filter for Login actions
+    login_data = df[df['Action'] == 'Login']
+
+    # Extract date and time
+    login_data['Date'] = login_data['Timestamp'].dt.date
+    login_data['Hour'] = login_data['Timestamp'].dt.hour
+
+    # Group by hour
+    login_counts = login_data.groupby('Hour').size()
+
+    # Count the distribution of user roles
+    role_counts = df['Role'].value_counts()
+
+    # Create a figure for the pie chart (User Role Distribution)
+    plt.figure(figsize=(6, 6))
+    plt.pie(role_counts, labels=role_counts.index, autopct='%1.1f%%', startangle=90,
+            colors=['#ff9999','#66b3ff','#99ff99','#ffcc99','#c2c2f0'])
+    plt.title('User Role Distribution')
+    plt.axis('equal')  # Equal aspect ratio ensures that pie is drawn as a circle.
+
+    # Save the pie chart as a PNG image in memory
+    img = io.BytesIO()
+    plt.savefig(img, format='png')
+    img.seek(0)
+    role_chart_url = base64.b64encode(img.getvalue()).decode()
+
+    # Create a figure for the login activity (Hourly logins)
+    plt.figure(figsize=(10, 6))
+    sns.lineplot(x=login_counts.index, y=login_counts.values, marker='o')
+    plt.title('Login Activity Over Time')
+    plt.xlabel('Hour of the Day')   
+    plt.ylabel('Number of Logins')
+    plt.grid()
+
+    # Save the line plot as a PNG image in memory
+    img = io.BytesIO()
+    plt.savefig(img, format='png')
+    img.seek(0)
+    login_chart_url = base64.b64encode(img.getvalue()).decode()
+
+    # Return HTML page with embedded charts
+    return render_template('charts.html', role_chart_url=role_chart_url, login_chart_url=login_chart_url)
