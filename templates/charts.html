@@ -3,15 +3,32 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Document</title>
+    <title>Charts</title>
+    <style>
+        /* Simple styling for the page */
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+        }
+        img {
+            max-width: 100%;  /* Makes the image responsive */
+            height: auto;
+            margin: 20px;
+        }
+    </style>
+
 </head>
 <body>
-    <h1>User Login and Role Distribution</h1>
+    <h1>User Role Distribution and Session Durations</h1>
 
+    <!-- Pie Chart -->
     <h2>User Role Distribution</h2>
-    <img src="data:image/png;base64,{{ role_chart_url }}" alt="User Role Distribution" />
+    <img src="{{ url_for('static', filename='pie_chart.png') }}" alt="Pie Chart">
 
-    <h2>Login Activity Over Time</h2>
-    <img src="data:image/png;base64,{{ login_chart_url }}" alt="Login Activity Over Time" />
+    <!-- Bar Chart -->
+    <h2>Session Durations per User</h2>
+    <img src="{{ url_for('static', filename='session_chart.png') }}" alt="Bar Chart">
+
+    
 </body>
 </html>

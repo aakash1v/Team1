@@ -353,53 +353,83 @@ def reset_password():
 
 ### Visulization...
 
+# Load and preprocess the data
+df = pd.read_csv('user_history2.csv')
+df['Timestamp'] = pd.to_datetime(df['Timestamp'])
+df = df.sort_values(by=["User ID", "Timestamp"]).reset_index(drop=True)
+
+# Calculate session data
+session_data = []
+for user_id in df["User ID"].unique():
+    user_data = df[df["User ID"] == user_id]
+    login_time = None
+
+    for _, row in user_data.iterrows():
+        if row["Action"] == "Login":
+            login_time = row["Timestamp"]
+        elif row["Action"] == "Logout" and login_time:
+            session_duration = (row["Timestamp"] - login_time).total_seconds() / 60
+            session_data.append({
+                "User ID": user_id,
+                "Username": row["Username"],
+                "Role": row["Role"],
+                "Login Time": login_time,
+                "Logout Time": row["Timestamp"],
+                "Session Duration (minutes)": session_duration
+            })
+            login_time = None
+
+session_df = pd.DataFrame(session_data)
+session_df["Session ID"] = session_df.groupby("Username").cumcount() + 1
+
+
 @login_bp.route('/charts')
 def charts():
-    # Read the CSV file (ensure it's in the same directory as your app or provide the full path)
-    df = pd.read_csv('user_history2.csv')
-
-    # Convert Timestamp to datetime
-    df['Timestamp'] = pd.to_datetime(df['Timestamp'])
-
-    # Filter for Login actions
-    login_data = df[df['Action'] == 'Login']
-
-    # Extract date and time
-    login_data['Date'] = login_data['Timestamp'].dt.date
-    login_data['Hour'] = login_data['Timestamp'].dt.hour
-
-    # Group by hour
-    login_counts = login_data.groupby('Hour').size()
-
-    # Count the distribution of user roles
+    # User Role Distribution Pie Chart
     role_counts = df['Role'].value_counts()
 
-    # Create a figure for the pie chart (User Role Distribution)
+    # Create the pie chart
     plt.figure(figsize=(6, 6))
-    plt.pie(role_counts, labels=role_counts.index, autopct='%1.1f%%', startangle=90,
-            colors=['#ff9999','#66b3ff','#99ff99','#ffcc99','#c2c2f0'])
-    plt.title('User Role Distribution')
-    plt.axis('equal')  # Equal aspect ratio ensures that pie is drawn as a circle.
+    wedges, texts, autotexts = plt.pie(role_counts, labels=role_counts.index, autopct='%1.1f%%', startangle=90,
+                                       colors=['#ff9999', '#66b3ff', '#99ff99', '#ffcc99', '#c2c2f0'], 
+                                       wedgeprops={'edgecolor': 'black', 'linewidth': 1, 'linestyle': 'solid'}, 
+                                       pctdistance=0.6)  # Moves the labels inside the pie chart
 
-    # Save the pie chart as a PNG image in memory
-    img = io.BytesIO()
-    plt.savefig(img, format='png')
-    img.seek(0)
-    role_chart_url = base64.b64encode(img.getvalue()).decode()
+    # Increase font size of the data labels and make them more visible
+    for autotext in autotexts:
+        autotext.set_fontsize(12)  # Set the font size for the percentage labels inside the pie
 
-    # Create a figure for the login activity (Hourly logins)
-    plt.figure(figsize=(10, 6))
-    sns.lineplot(x=login_counts.index, y=login_counts.values, marker='o')
-    plt.title('Login Activity Over Time')
-    plt.xlabel('Hour of the Day')   
-    plt.ylabel('Number of Logins')
-    plt.grid()
+    for text in texts:
+        text.set_fontsize(12)  # Set the font size for the category labels inside the pie
 
-    # Save the line plot as a PNG image in memory
-    img = io.BytesIO()
-    plt.savefig(img, format='png')
-    img.seek(0)
-    login_chart_url = base64.b64encode(img.getvalue()).decode()
+    # Adjust title and layout
+    plt.title('User Role Distribution', fontsize=14)
+    plt.axis('equal')  # Equal aspect ratio ensures the pie is a circle
 
-    # Return HTML page with embedded charts
-    return render_template('charts.html', role_chart_url=role_chart_url, login_chart_url=login_chart_url)
+    # Save pie chart to static folder
+    pie_chart_path = os.path.join('static', 'pie_chart.png')
+    plt.savefig(pie_chart_path, bbox_inches='tight')  # Ensures labels are not cut off
+    plt.close()
+
+    # Session Duration Bar Chart
+    plt.figure(figsize=(10, 6))  # Reduce the figure size for better presentation
+    sns.barplot(data=session_df, x="Username", y="Session Duration (minutes)", hue="Session ID", palette="viridis")
+    plt.title("Session Durations per User", fontsize=16)
+    plt.xlabel("Username", fontsize=12)
+    plt.ylabel("Session Duration (minutes)", fontsize=12)
+
+    # Rotate x-axis labels for better visibility and adjust the font size
+    plt.xticks(rotation=45, ha="right", fontsize=10)
+
+    # Adjust legend font size and position
+    plt.legend(title="Session ID", bbox_to_anchor=(1.05, 1), loc='upper left', fontsize=10)
+
+    plt.tight_layout()  # Automatically adjusts layout for better fitting
+
+    # Save bar chart to static folder
+    bar_chart_path = os.path.join('static', 'session_chart.png')
+    plt.savefig(bar_chart_path, bbox_inches='tight')  # Ensures labels are not cut off
+    plt.close()
+
+    # Render template with chart images
+    return render_template('charts.html', pie_chart_url='static/pie_chart.png', bar_chart_url='static/session_chart.png')
