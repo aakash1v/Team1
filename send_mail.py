@@ -3,8 +3,6 @@ from email.mime.text import MIMEText
 from email.message import EmailMessage
 from database import db
 
-# sender_email = "sukheshdasari@gmail.com"
-# sender_password = "drer ssxn yxuk xwlz"  
 SENDER_EMAIL = "examplenamez543@gmail.com"
 SENDER_PASSWORD = "mfnppwcnqlmpzymc"
 

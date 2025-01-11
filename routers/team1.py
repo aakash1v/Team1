@@ -10,11 +10,8 @@ import os
 import csv
 from werkzeug.utils import secure_filename
 import pandas as pd
-import matplotlib.pyplot as plt
-import io
-import base64
-import seaborn as sns
-
+import plotly.express as px
+import plotly.graph_objects as go
 
 USER =""
 # File to store history
@@ -353,83 +350,73 @@ def reset_password():
 
 ### Visulization...
 
-# Load and preprocess the data
-df = pd.read_csv('user_history2.csv')
-df['Timestamp'] = pd.to_datetime(df['Timestamp'])
-df = df.sort_values(by=["User ID", "Timestamp"]).reset_index(drop=True)
 
-# Calculate session data
-session_data = []
-for user_id in df["User ID"].unique():
-    user_data = df[df["User ID"] == user_id]
-    login_time = None
-
-    for _, row in user_data.iterrows():
-        if row["Action"] == "Login":
-            login_time = row["Timestamp"]
-        elif row["Action"] == "Logout" and login_time:
-            session_duration = (row["Timestamp"] - login_time).total_seconds() / 60
-            session_data.append({
-                "User ID": user_id,
-                "Username": row["Username"],
-                "Role": row["Role"],
-                "Login Time": login_time,
-                "Logout Time": row["Timestamp"],
-                "Session Duration (minutes)": session_duration
-            })
-            login_time = None
-
-session_df = pd.DataFrame(session_data)
-session_df["Session ID"] = session_df.groupby("Username").cumcount() + 1
 
 
 @login_bp.route('/charts')
 def charts():
-    # User Role Distribution Pie Chart
-    role_counts = df['Role'].value_counts()
 
-    # Create the pie chart
-    plt.figure(figsize=(6, 6))
-    wedges, texts, autotexts = plt.pie(role_counts, labels=role_counts.index, autopct='%1.1f%%', startangle=90,
-                                       colors=['#ff9999', '#66b3ff', '#99ff99', '#ffcc99', '#c2c2f0'], 
-                                       wedgeprops={'edgecolor': 'black', 'linewidth': 1, 'linestyle': 'solid'}, 
-                                       pctdistance=0.6)  # Moves the labels inside the pie chart
+    # Load data
+    df = pd.read_csv('user_history2.csv')
 
-    # Increase font size of the data labels and make them more visible
-    for autotext in autotexts:
-        autotext.set_fontsize(12)  # Set the font size for the percentage labels inside the pie
+    # Convert Timestamp to datetime
+    df['Timestamp'] = pd.to_datetime(df['Timestamp'])
 
-    for text in texts:
-        text.set_fontsize(12)  # Set the font size for the category labels inside the pie
+    # Separate login and logout rows
+    df_logins = df[df['Action'] == 'Login']
+    df_logouts = df[df['Action'] == 'Logout']
 
-    # Adjust title and layout
-    plt.title('User Role Distribution', fontsize=14)
-    plt.axis('equal')  # Equal aspect ratio ensures the pie is a circle
+    # Initialize empty list to store sessions
+    sessions = []
 
-    # Save pie chart to static folder
-    pie_chart_path = os.path.join('static', 'pie_chart.png')
-    plt.savefig(pie_chart_path, bbox_inches='tight')  # Ensures labels are not cut off
-    plt.close()
+    for idx, login_row in df_logins.iterrows():
+        # Find the first logout for the same user after the login time
+        possible_logouts = df_logouts[df_logouts['Timestamp'] > login_row['Timestamp']]
 
-    # Session Duration Bar Chart
-    plt.figure(figsize=(10, 6))  # Reduce the figure size for better presentation
-    sns.barplot(data=session_df, x="Username", y="Session Duration (minutes)", hue="Session ID", palette="viridis")
-    plt.title("Session Durations per User", fontsize=16)
-    plt.xlabel("Username", fontsize=12)
-    plt.ylabel("Session Duration (minutes)", fontsize=12)
+        if not possible_logouts.empty:
+            logout_row = possible_logouts.iloc[0]
 
-    # Rotate x-axis labels for better visibility and adjust the font size
-    plt.xticks(rotation=45, ha="right", fontsize=10)
+            sessions.append({
+                'User ID': login_row['User ID'],
+                'Username': login_row['Username'],
+                'Timestamp_login': login_row['Timestamp'],
+                'Timestamp_logout': logout_row['Timestamp'],
+                'Duration_minutes': (logout_row['Timestamp'] - login_row['Timestamp']).total_seconds() / 60
+            })
 
-    # Adjust legend font size and position
-    plt.legend(title="Session ID", bbox_to_anchor=(1.05, 1), loc='upper left', fontsize=10)
+            # Remove this logout from df_logouts to avoid pairing it again
+            df_logouts = df_logouts[df_logouts['Timestamp'] != logout_row['Timestamp']]
 
-    plt.tight_layout()  # Automatically adjusts layout for better fitting
+    # Create DataFrame for sessions
+    df_sessions = pd.DataFrame(sessions)
 
-    # Save bar chart to static folder
-    bar_chart_path = os.path.join('static', 'session_chart.png')
-    plt.savefig(bar_chart_path, bbox_inches='tight')  # Ensures labels are not cut off
-    plt.close()
+    # Add Session ID for each login/logout pair
+    df_sessions['Session ID'] = df_sessions.groupby('Username').cumcount() + 1
+    df_sessions['Session Number'] = df_sessions.groupby('Username').cumcount() + 1
 
-    # Render template with chart images
-    return render_template('charts.html', pie_chart_url='static/pie_chart.png', bar_chart_url='static/session_chart.png')
+    custom_colors = [
+        '#F25C54', '#6B8E23', '#3B9A8C', '#FFB6B9', '#FF6F61', '#6A5ACD', '#FFD700', '#008080'
+    ]
+
+    # Generate bar chart
+    bar_fig = px.bar(df_sessions, 
+                     x="Username", 
+                     y="Duration_minutes", 
+                     color="Session Number", 
+                     title="Session Duration vs. Number of Login Sessions per User",
+                     labels={'Session Number': 'Login Session', 'Duration_minutes': 'Session Duration (minutes)', 'Username': 'User'},
+                     color_continuous_scale="Viridis",
+                     color_discrete_sequence=custom_colors)
+
+    # Convert the plot to HTML for embedding in the template
+    bar_graph_html = bar_fig.to_html(full_html=False)
+
+    # Plot pie chart for login distribution by role
+    login_count = df[df.Action == 'Login']['Role'].value_counts()
+    pie_fig = px.pie(names=login_count.index, values=login_count.values, title='User Login Distribution by Role')
+
+    # Convert pie chart to HTML
+    pie_graph_html = pie_fig.to_html(full_html=False)
+
+    # Render the HTML page with both plots
+    return render_template('charts.html', bar_chart=bar_graph_html, pie_chart=pie_graph_html)
