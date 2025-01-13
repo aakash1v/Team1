@@ -12,13 +12,17 @@ from werkzeug.utils import secure_filename
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
+from fpdf import FPDF
+from flask import send_file
+from plotly.graph_objects import Figure
+
 
 USER =""
 # File to store history
 CSV_FILE = "user_history.csv"
 
 login_manager = LoginManager()
-login_bp = Blueprint('auth', __name__)  
+login_bp = Blueprint('auth', __name__)   
 
 
 # Ensure the upload folder exists
@@ -351,16 +355,16 @@ def reset_password():
 ### Visulization...
 
 
-
-
-@login_bp.route('/charts')
+@login_bp.route('/charts', methods=['GET', 'POST'])
 def charts():
-
     # Load data
-    df = pd.read_csv('user_history2.csv')
+    df = pd.read_csv('user_history.csv')
 
     # Convert Timestamp to datetime
     df['Timestamp'] = pd.to_datetime(df['Timestamp'])
+
+    # Normalize the Action column to consistent case
+    df['Action'] = df['Action'].str.capitalize()
 
     # Separate login and logout rows
     df_logins = df[df['Action'] == 'Login']
@@ -379,6 +383,7 @@ def charts():
             sessions.append({
                 'User ID': login_row['User ID'],
                 'Username': login_row['Username'],
+                "Role": login_row["Role"],
                 'Timestamp_login': login_row['Timestamp'],
                 'Timestamp_logout': logout_row['Timestamp'],
                 'Duration_minutes': (logout_row['Timestamp'] - login_row['Timestamp']).total_seconds() / 60
@@ -405,18 +410,146 @@ def charts():
                      color="Session Number", 
                      title="Session Duration vs. Number of Login Sessions per User",
                      labels={'Session Number': 'Login Session', 'Duration_minutes': 'Session Duration (minutes)', 'Username': 'User'},
-                     color_continuous_scale="Viridis",
                      color_discrete_sequence=custom_colors)
 
     # Convert the plot to HTML for embedding in the template
     bar_graph_html = bar_fig.to_html(full_html=False)
 
-    # Plot pie chart for login distribution by role
+   # Plot pie chart for login distribution by role
     login_count = df[df.Action == 'Login']['Role'].value_counts()
-    pie_fig = px.pie(names=login_count.index, values=login_count.values, title='User Login Distribution by Role')
 
-    # Convert pie chart to HTML
+        # Create the pie chart using go.Figure
+    pie_fig = Figure()
+
+    # Add pie chart data
+    pie_fig.add_trace(go.Pie(
+        labels=login_count.index,  # Labels for the pie chart
+        values=login_count.values,  # Values for each slice
+        textposition='outside',  # Place text outside slices
+        textinfo='percent+label'  # Show percentage and label together
+    ))
+
+    # Add title
+    pie_fig.update_layout(title='User Login Distribution by Role')
+
     pie_graph_html = pie_fig.to_html(full_html=False)
+
+
+    ### EXPORTING DATA INTO PDF  ...
+
+    if request.method == 'POST':
+        # Generate aggregated statistics
+        total_users = df_sessions['User ID'].nunique()
+        total_sessions = len(df_sessions)
+        avg_session_duration = df_sessions['Duration_minutes'].mean()
+        # Calculate the role counts
+        role_counts = df['Role'].value_counts()
+
+        # Calculate the total number of roles (this is used to calculate the percentage)
+        total_roles = role_counts.sum()
+
+        # Calculate the percentage of each role
+        role_percentages = {role: (count / total_roles) * 100 for role, count in role_counts.items()}
+        # Assuming session_df has been created
+        max_session_user = df_sessions.loc[df_sessions['Duration_minutes'].idxmax()]
+        min_session_user = df_sessions.loc[df_sessions['Duration_minutes'].idxmin()]
+        failed_logins = df[df["Action"] == "Failed Login"]
+        total_failed_logins = len(failed_logins)
+        failed_login_percentage = (total_failed_logins / len(df)) * 100
+        most_failed_user_id = failed_logins["User ID"].value_counts().idxmax() if not failed_logins.empty else None
+        most_failed_user_count = failed_logins["User ID"].value_counts().max() if not failed_logins.empty else 0
+        most_failed_username = (
+            df[df["User ID"] == most_failed_user_id]["Username"].iloc[0]
+            if most_failed_user_id
+            else "N/A"
+        )
+        # Generate summary paragraph
+        # Generate overview
+        # Generate overview
+        overview = f"""
+        The system tracks login activities for {total_users} unique users across {total_sessions} sessions.
+        The busiest login hour is {df['Timestamp'].dt.hour.mode()[0]}:00.
+        """
+
+        # Add role distribution
+        overview += "\n- Role distribution:\n"
+        for role, percentage in role_percentages.items():
+            overview += f"  {role}: {role_counts[role]} ({percentage:.1f}%)\n"
+
+        # Add a paragraph to explain the context
+        paragraph = f"""
+        In total, the system has recorded login data from a wide range of users, with {total_users} unique individuals participating across {total_sessions} sessions. 
+        This data offers valuable insights into user behavior, including session lengths, peak login times, and the distribution of roles within the system. 
+        The role distribution gives an understanding of how the user base is segmented, while the analysis of login behavior helps identify patterns that can inform system optimizations.
+        """
+
+        # Generate detailed insights
+        detailed_insights = f"""
+        Detailed Insights:
+        - Maximum session duration: {max_session_user['Duration_minutes']:.2f} minutes by {max_session_user['Username']} (Role: {max_session_user['Role']})
+        - Minimum session duration: {min_session_user['Duration_minutes']:.2f} minutes by {min_session_user['Username']} (Role: {min_session_user['Role']})
+        """
+
+        # Add failed login insights
+        failed_attempts = f"""
+        - Total failed login attempts: {total_failed_logins} ({failed_login_percentage:.2f}% of all actions)
+        """
+        if most_failed_user_id:
+            failed_attempts += f"- User with most failed logins: {most_failed_username} (User ID: {most_failed_user_id}) with {most_failed_user_count} failures"
+        else:
+            failed_attempts += "- No user had repeated failed login attempts."
+
+        # Combine sections for display or export
+        summary = f"{paragraph.strip()}\n\n{overview.strip()}\n\n{detailed_insights.strip()}\n\n{failed_attempts.strip()}"
+
+        # Add role distribution
+        overview += "\n- Role distribution:\n"
+        for role, percentage in role_percentages.items():
+            overview += f"  {role}: {role_counts[role]} ({percentage:.1f}%)\n"
+
+        # Add a paragraph to explain the context
+        paragraph = f"""
+        In total, the system has recorded login data from a wide range of users, with {total_users} unique individuals participating across {total_sessions} sessions. 
+        This data offers valuable insights into user behavior, including session lengths, peak login times, and the distribution of roles within the system. 
+        The role distribution gives an understanding of how the user base is segmented, while the analysis of login behavior helps identify patterns that can inform system optimizations.
+        """
+
+        # Generate detailed insights
+        detailed_insights = f"""
+        Detailed Insights:
+        - Maximum session duration: {max_session_user['Duration_minutes']:.2f} minutes by {max_session_user['Username']} (Role: {max_session_user['Role']})
+        - Minimum session duration: {min_session_user['Duration_minutes']:.2f} minutes by {min_session_user['Username']} (Role: {min_session_user['Role']})
+        """
+
+        # Add failed login insights
+        failed_attempts = f"""
+        - Total failed login attempts: {total_failed_logins} ({failed_login_percentage:.2f}% of all actions)
+        """
+        if most_failed_user_id:
+            failed_attempts += f"- User with most failed logins: {most_failed_username} (User ID: {most_failed_user_id}) with {most_failed_user_count} failures"
+        else:
+            failed_attempts += "- No user had repeated failed login attempts."
+
+        # Combine sections for display or export
+        summary = f"{paragraph.strip()}\n\n{overview.strip()}\n\n{detailed_insights.strip()}\n\n{failed_attempts.strip()}"
+
+                # Generate the PDF report
+        pdf = FPDF()
+        pdf.add_page()
+        pdf.set_font('Arial', 'B', 16)
+        pdf.cell(200, 10, 'Login Activity Report', ln=True, align='C')
+        pdf.cell(200, 10, '', ln=True)  # Empty line
+
+        # Add summary paragraph
+        pdf.set_font('Arial', '', 12)
+        pdf.multi_cell(0, 10, summary.strip())
+
+        # Save PDF
+        pdf_path = os.path.join('static', 'login_report.pdf')
+        pdf.output(pdf_path)
+
+        return send_file(pdf_path, as_attachment=True, mimetype='application/pdf', download_name='login_report.pdf')
 
     # Render the HTML page with both plots
     return render_template('charts.html', bar_chart=bar_graph_html, pie_chart=pie_graph_html)
+

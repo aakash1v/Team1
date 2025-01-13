@@ -119,5 +119,11 @@
             {{ bar_chart|safe }}
 
     </div>
+    <!-- Export to PDF Button -->
+    <div class="mt-4">
+        <form method="POST" action="{{ url_for('auth.charts') }}">
+            <button type="submit" class="btn btn-success">Export to PDF</button>
+        </form>
+    </div>
 </body>
 </html>
