@@ -89,15 +89,7 @@ def history(user_id):
 
 ### ADMIN DASHBOARD ROUTES ....
 
-@login_bp.route('/admin_dashboard')
-@login_required
-def admin_dashboard():
-    print(current_user.Name)
-    if current_user.Role == 'admin':
-        users = Users.query.all()
-        return render_template('admin_dashboard.html', users=users, u=current_user)
-    else:
-        return jsonify({'error': "u don't have access to this page....."})
+
 
 
 @login_bp.route('/delete_user/<int:user_id>', methods=['POST'])
@@ -352,11 +344,13 @@ def reset_password():
     return render_template('reset_password.html', error_message=error_message)
 
 
-### Visulization...
+### ADMIN DASHBOARD .......
 
 
-@login_bp.route('/charts', methods=['GET', 'POST'])
-def charts():
+@login_bp.route('/admin_dashboard', methods=['GET', 'POST'])
+@login_required
+def admin_dashboard():
+    print(current_user.Name)
     # Load data
     df = pd.read_csv('user_history.csv')
 
@@ -550,6 +544,12 @@ def charts():
 
         return send_file(pdf_path, as_attachment=True, mimetype='application/pdf', download_name='login_report.pdf')
 
-    # Render the HTML page with both plots
-    return render_template('charts.html', bar_chart=bar_graph_html, pie_chart=pie_graph_html)
+
+    if current_user.Role == 'admin':
+        users = Users.query.all()
+        return render_template('admin_dashboard.html', users=users, u=current_user, bar_chart=bar_graph_html, pie_chart=pie_graph_html)
+    else:
+        return jsonify({'error': "u don't have access to this page....."})
+    
+
 
