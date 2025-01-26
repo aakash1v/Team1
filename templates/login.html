@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Login</title>
+    <link rel="stylesheet" href="../static/css/login.css" />
+
+    <link
+      href="https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css"
+      rel="stylesheet"
+    />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Agu+Display&family=Rubik+Vinyl&family=Sixtyfour&display=swap"
+      rel="stylesheet"
+    />
+
+    <style>
+      .agu-display {
+        font-family: "Agu Display", serif;
+        font-optical-sizing: auto;
+        font-weight: 400;
+        font-style: normal;
+        font-variation-settings: "MORF" 0;
+      }
+
+      /* Navbar Styling */
+      .navbar {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        width: 100%;
+        padding: 15px 30px;
+        background: rgba(18, 17, 78, 0.8);
+        box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+        position: fixed;
+        top: 0;
+        left: 0;
+        z-index: 1000;
+      }
+
+      .navbar .logo img {
+        height: 60px;
+        width: auto;
+        border-radius: 28px;
+        padding: 1px 2px;
+        animation: logoPulse 3s infinite ease-in-out;
+        background: linear-gradient(45deg, #1e90ff, #ff6347); /* Gradient background */
+        border: 2px solid transparent; /* Invisible border for hover effect */
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2), 0 0 15px rgba(10, 57, 102, 0.4);
+       transition: transform 0.4s ease, box-shadow 0.3s ease, border-color 0.3s ease;
+
+      }
+      @keyframes logoPulse {
+        0% {
+          transform: translateY(0) scale(1);
+          box-shadow: 0 0 10px rgba(10, 57, 102, 0.5);
+          border-color: rgb(243, 243, 248);
+        }
+        25% {
+          transform: translateY(-5px) scale(1.05);
+          box-shadow: 0 0 20px rgba(10, 57, 102, 0.7);
+          border-color: rgba(10, 57, 102, 0.8);
+        }
+        50% {
+          transform: translateY(0) scale(1);
+          box-shadow: 0 0 15px rgba(10, 57, 102, 0.6);
+          border-color: rgb(243, 243, 248);
+        }
+        75% {
+          transform: translateY(5px) scale(0.95);
+          box-shadow: 0 0 12px rgba(10, 57, 102, 0.4);
+          border-color: rgba(243, 243, 248, 0.6);
+        }
+        100% {
+          transform: translateY(0) scale(1);
+          box-shadow: 0 0 10px rgba(10, 57, 102, 0.5);
+          border-color: rgb(243, 243, 248);
+        }
+      }
+    
+
+      .navbar .slogan h1 {
+        margin: 0;
+        font-size: 1.8rem;
+        color: #fff;
+        /* border: 1px solid rgb(122, 34, 34); */
+        border-radius: 50px;
+        padding: 15px 50px;
+        text-shadow: 1px 1px 3px rgba(148, 47, 47, 0.7);
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.5);
+      }
+
+      /* Adjustments for body to fit navbar */
+      body {
+        padding-top: 80px; /* Adjust padding to avoid overlap with navbar */
+      }
+    </style>
+  </head>
+  <body>
+    <nav class="navbar">
+      <div class="logo">
+        <img src="../static/images/logo2.png" alt="Logo" />
+      </div>
+      <div class="slogan">
+        <h1 class="agu-display">"Swift Access, Seamless Progress !"</h1>
+      </div>
+    </nav>
+    <div class="wrapper">
+      <form action="/auth/" method="POST">
+        <h1>Login</h1>
+        <div class="input-box">
+          <input type="text" placeholder="Username" name="username" required />
+          <i class="bx bxs-user"></i>
+        </div>
+        <div class="input-box">
+          <input
+            type="password"
+            placeholder="Password"
+            name="password"
+            required
+          />
+          <i class="bx bxs-lock"></i>
+        </div>
+        <!-- Display error message if it exists -->
+        {% if error_message %}
+        <p style="color: red">{{ error_message }}</p>
+        {% endif %}
+        <br />
+        <div class="remember-forgot">
+          <label><input type="checkbox" />Remember Me</label>
+          <a href="{{url_for('auth.forgot_password')}}">Forgot Password</a>
+        </div>
+        <button type="submit" class="btn">Login</button>
+        <div class="register-link">
+          <p>
+            Don't have an account?
+            <a href="{{url_for('auth.add_user')}}">SignUp</a>
+          </p>
+        </div>
+      </form>
+    </div>
+  </body>
+</html>
