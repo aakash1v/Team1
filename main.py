@@ -28,12 +28,17 @@ from models import (
     ScrumMasters,
     Reports
 )
+from flask_cors import CORS
 
 # Import your blueprints
 #from routers.team1 import login_bp, login_manager
 from routers.team1 import login_bp, login_manager
 
 app = Flask(__name__)
+app = Flask(__name__)
+
+CORS(app)  # Enables CORS for all routes and origins
+
 login_manager.init_app(app)
 login_manager.login_view = "auth.login"
 

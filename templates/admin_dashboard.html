@@ -16,6 +16,33 @@
         .hero{
           display: flex;
         }
+        .container h2{
+          margin: 20px;
+        }
+        .container{
+          margin-bottom: 20px;
+        }
+        .creative-hr {
+            display: flex;
+            align-items: center;
+            text-align: center;
+            margin: 20px 0;
+        }
+
+        .creative-hr::before,
+        .creative-hr::after {
+            content: '';
+            flex: 1;
+            border-bottom: 2px dashed #6c757d;
+            margin: 0 10px;
+        }
+
+        .creative-hr span {
+            font-size: 1.2rem;
+            font-weight: bold;
+            color: #6c757d;
+            padding: 0 10px;
+        }
     </style>
   </head>
   <body>
@@ -101,7 +128,10 @@
       </div>
       <div class="container">
         <h1 style="text-align: center;">User Analytics</h1>
-
+        <div class="creative-hr">
+          <span>★ ★ ★</span>
+      </div>
+  
         <div class="chart-container">
           <h2>User Login Distribution by Role</h2>
           {{ pie_chart|safe }}

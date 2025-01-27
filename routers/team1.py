@@ -1,4 +1,4 @@
-from flask import request, jsonify, render_template, redirect, url_for, session, Blueprint,current_app
+from flask import request, jsonify, render_template, redirect, url_for, session, Blueprint,current_app, flash
 from datetime import datetime, timedelta
 import seaborn as sns
 import matplotlib.pyplot as plt
@@ -134,6 +134,44 @@ def update_approval(user_id):
     return redirect(url_for('auth.admin_dashboard'))  
 
 
+
+
+###  User Login
+@login_bp.route('/', methods=['GET', 'POST'])
+def login():
+    global USER
+    if request.method == 'POST':
+        username = request.form['username']
+        password = request.form['password']
+
+        # Query the database to find a user by username
+        user = Users.query.filter_by(UserName=username).first()
+        USER = user
+        if user and pw.verify_password(password, user.Password.encode('utf-8')):
+            if not user.Approved and user.Role != 'admin':
+                session['error_message'] = "Your account is not approved by the admin."
+                return redirect(url_for('auth.login'))
+            session.pop('error_message', None)  # Clear any previous error messages
+            otp = otp_generator()
+            sm.send_otp_email(user.Email, otp)
+
+            session['otp'] = otp
+            session['otp_expiry'] = (datetime.now() + timedelta(minutes=5)).isoformat()
+            session['username'] = user.UserName
+            session['role'] = user.Role
+            session['uid']=user.UserID
+            log_to_csv(user.UserID, "Login")  # Successful login
+            return redirect(url_for('auth.verify_otp'))
+
+        else:
+            # Log failed login attempt to the new CSV
+            log_failed_login(username)
+            session['error_message'] = 'Wrong password. Please try again.'
+            return redirect(url_for('auth.login'))
+
+    error_message = session.pop('error_message', None)
+    return render_template('login.html', error_message=error_message)
+
 #####  USER REGESTRATION ....
 
 @login_bp.route('/add_user', methods=['POST', 'GET'])
@@ -181,7 +219,9 @@ def add_user():
                 for admin in admins:
                     ## sending mail to admin for approval...
                     sm.sending_approval_req(admin, new_user)
-            return jsonify({'message': 'User added successfully!'}), 201
+            flash('You successfully Signed Up!', 'success')
+            # return jsonify({'message': 'User added successfully!'}), 201
+            return redirect(url_for('auth.login'))
             
 
         except Exception as e:
@@ -189,44 +229,6 @@ def add_user():
             return jsonify({'error': str(e)}), 400
 
     return render_template('signup.html')
-
-###  User Login
-@login_bp.route('/', methods=['GET', 'POST'])
-def login():
-    global USER
-    if request.method == 'POST':
-        username = request.form['username']
-        password = request.form['password']
-
-        # Query the database to find a user by username
-        user = Users.query.filter_by(UserName=username).first()
-        USER = user
-        if user and pw.verify_password(password, user.Password.encode('utf-8')):
-            if not user.Approved and user.Role != 'admin':
-                session['error_message'] = "Your account is not approved by the admin."
-                return redirect(url_for('auth.login'))
-            session.pop('error_message', None)  # Clear any previous error messages
-            otp = otp_generator()
-            sm.send_otp_email(user.Email, otp)
-
-            session['otp'] = otp
-            session['otp_expiry'] = (datetime.now() + timedelta(minutes=5)).isoformat()
-            session['username'] = user.UserName
-            session['role'] = user.Role
-            session['uid']=user.UserID
-            log_to_csv(user.UserID, "Login")  # Successful login
-            return redirect(url_for('auth.verify_otp'))
-
-        else:
-            # Log failed login attempt to the new CSV
-            log_failed_login(username)
-            session['error_message'] = 'Wrong password. Please try again.'
-            return redirect(url_for('auth.login'))
-
-    error_message = session.pop('error_message', None)
-    return render_template('login.html', error_message=error_message)
-
-
 
 #### Logout
 
