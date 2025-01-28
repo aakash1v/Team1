@@ -21,7 +21,7 @@ from flask import send_file
 from plotly.graph_objects import Figure
 
 
-USER =""
+
 # File to store history
 CSV_FILE = "user_history.csv"
 
@@ -64,6 +64,7 @@ def log_to_csv(user_id, action):
         ip_address = request.remote_addr or "Unknown"
         writer.writerow([user_id, user.UserName, user.Role, action, timestamp, ip_address])
 
+
 # Function to read records from the CSV file
 def get_history_from_csv(user_id):
     history = []
@@ -91,6 +92,7 @@ def history(user_id):
 
 FAILED_LOGIN_CSV_FILE = "failed_login_history.csv"
 
+
 # Initialize the failed login CSV file if it doesn't exist
 if not os.path.exists(FAILED_LOGIN_CSV_FILE):
     with open(FAILED_LOGIN_CSV_FILE, mode='w', newline='') as file:
@@ -106,11 +108,7 @@ def log_failed_login(username):
         writer.writerow([username, timestamp, ip_address])
 
 
-
-
 ### ADMIN DASHBOARD ROUTES ....
-
-
 
 
 @login_bp.route('/delete_user/<int:user_id>', methods=['POST'])
@@ -139,14 +137,15 @@ def update_approval(user_id):
 ###  User Login
 @login_bp.route('/', methods=['GET', 'POST'])
 def login():
-    global USER
+    
     if request.method == 'POST':
         username = request.form['username']
         password = request.form['password']
 
         # Query the database to find a user by username
         user = Users.query.filter_by(UserName=username).first()
-        USER = user
+        
+        
         if user and pw.verify_password(password, user.Password.encode('utf-8')):
             if not user.Approved and user.Role != 'admin':
                 session['error_message'] = "Your account is not approved by the admin."
@@ -238,15 +237,16 @@ def logout():
     print(current_user.UserName)
     # track_logout(None, current_user)  # Call track_login manually
     log_to_csv(current_user.UserID, "Logout")
+    print(current_user, "Logout")
     logout_user()
     return redirect(url_for('auth.login'))
 
 
 
 #### VERIFY OTP ...
-
 @login_bp.route('/verify_otp', methods=['GET', 'POST'])
 def verify_otp():
+    
     if request.method == 'POST':
         entered_otp = request.form['otp']
 
@@ -266,19 +266,21 @@ def verify_otp():
         elif 'otp' in session and 'otp_expiry' in session:
             otp_expiry = datetime.fromisoformat(session['otp_expiry'])
             if datetime.now() < otp_expiry and int(entered_otp) == session['otp']:
+                user_id = session['uid']
+                print(user_id)
+                user = Users.query.filter_by(UserID=user_id).first()
                 session.pop('otp')
                 session.pop('otp_expiry')
                 if session.get('role') == 'admin':
-                    login_user(USER)
+                    login_user(user)
                     log_to_csv(current_user.UserID, "Login")
 
                     # track_login(None, current_user)  # Call track_login manually
 
                     return redirect(url_for('auth.admin_dashboard'))  # Redirect to Admin Dashboard
                 else:
-                    print(USER)
-                    print(USER.UserID)
-                    login_user(USER)
+                    print(user)
+                    login_user(user)
                     log_to_csv(current_user.UserID, "Login")
 
                     # track_login(None, current_user)  # Call track_login manually
@@ -403,7 +405,7 @@ def generate_failed_login_heatmap(csv_file='failed_login_history.csv'):
 @login_bp.route('/admin_dashboard', methods=['GET', 'POST'])
 @login_required
 def admin_dashboard():
-    print(current_user.Name)
+    # print(current_user.Name)
     # Load data
     df = pd.read_csv('user_history.csv')
     failed_login_df = pd.read_csv('failed_login_history.csv')  # Load failed login data
@@ -474,7 +476,7 @@ def admin_dashboard():
     # Reorder days of the week
     days_order = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
     heatmap_data = heatmap_data.reindex(days_order)
-    print(heatmap_data)
+    # print(heatmap_data)
     # Create the heatmap using Plotly
     if not heatmap_data.empty and heatmap_data.size > 0:
         fig = go.Figure(
@@ -586,7 +588,6 @@ def admin_dashboard():
         most_failed_user_id = "Unknown"
         user = db.session.execute(db.select(Users).where(Users.UserName == most_failed_username)).scalar()
         most_failed_user_id = user.UserID
-        print(most_failed_user_id)
 
         if most_failed_user_id:
             failed_attempts += f"- User with most failed logins: {most_failed_username} (User ID: {most_failed_user_id}) with {most_failed_user_count} failures"
@@ -617,7 +618,6 @@ def admin_dashboard():
 
     if current_user.Role == 'admin':
         users = Users.query.all()
-        print([user for user in users])
         return render_template('admin_dashboard.html', users=users, u=current_user, bar_chart=bar_graph_html, pie_chart=pie_graph_html, heatmap=heatmap_html)
     else:
         return jsonify({'error': "u don't have access to this page....."})
