@@ -44,7 +44,11 @@
             class="alert alert-success alert-dismissible fade show"
             role="alert"
           >
+          {% if new %}
             <strong>{{message}} </strong> u can login after admin approval.
+            {% else %}
+            {{message}}
+            {% endif %}
             <button
               type="button"
               class="close"

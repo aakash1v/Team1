@@ -220,7 +220,7 @@ def add_user():
                     sm.sending_approval_req(admin, new_user)
             flash('You successfully Signed Up!', 'success')
             # return jsonify({'message': 'User added successfully!'}), 201
-            return redirect(url_for('auth.login'))
+            return redirect(url_for('auth.login', new=True))
             
 
         except Exception as e:
@@ -370,7 +370,9 @@ def reset_password():
         db.session.commit()
 
         session.pop('reset_email')
-        return jsonify({'message': f'Hi, {user.Name} ur Password reset successfully! for {user_id}'}), 200
+        # return jsonify({'message': f'Hi, {user.Name} ur Password reset successfully! for {user_id}'}), 200
+        flash(f"Hi {user.Name} ,your password is successfully updated ")
+        return redirect(url_for('auth.login'))
 
     error_message = session.pop('error_message', None)
     return render_template('reset_password.html', error_message=error_message)
@@ -407,8 +409,8 @@ def generate_failed_login_heatmap(csv_file='failed_login_history.csv'):
 def admin_dashboard():
     # print(current_user.Name)
     # Load data
-    df = pd.read_csv('user_history.csv')
-    failed_login_df = pd.read_csv('failed_login_history.csv')  # Load failed login data
+    df = pd.read_csv('user_history.csv', on_bad_lines='skip')
+    failed_login_df = pd.read_csv('failed_login_history.csv', on_bad_lines='skip' ) # Skip problematic rows
 
     # Convert Timestamp to datetime
     df['Timestamp'] = pd.to_datetime(df['Timestamp'])
