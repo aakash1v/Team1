@@ -32,3 +32,6 @@ User ID,Username,Role,Action,Timestamp,IP Address
 19,new,product owner,Login,2025-01-28 15:15:07,127.0.0.1
 19,new,product owner,Login,2025-01-28 15:15:18,127.0.0.1
 19,new,product owner,Logout,2025-01-28 15:15:58,127.0.0.1
+18,aakash,admin,Login,2025-01-28 15:33:50,127.0.0.1
+18,aakash,admin,Login,2025-01-28 15:34:05,127.0.0.1
+18,aakash,admin,Logout,2025-01-28 15:34:15,127.0.0.1

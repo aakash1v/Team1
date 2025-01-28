@@ -1,9 +1,5 @@
 from flask import request, jsonify, render_template, redirect, url_for, session, Blueprint,current_app, flash
 from datetime import datetime, timedelta
-import seaborn as sns
-import matplotlib.pyplot as plt
-import io, base64
-from matplotlib import pyplot as plt
 import password_utils as pw
 import send_mail as sm
 import random
@@ -376,29 +372,6 @@ def reset_password():
 
     error_message = session.pop('error_message', None)
     return render_template('reset_password.html', error_message=error_message)
-
-def generate_failed_login_heatmap(csv_file='failed_login_history.csv'):
-    df = pd.read_csv(csv_file)
-    df['Timestamp'] = pd.to_datetime(df['Timestamp'])
-    df['Day'] = df['Timestamp'].dt.day_name()
-    df['Hour'] = df['Timestamp'].dt.hour
-
-    heatmap_data = df.groupby(['Day', 'Hour']).size().unstack(fill_value=0)
-    days_order = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
-    heatmap_data = heatmap_data.reindex(days_order)
-
-    plt.figure(figsize=(12, 6))
-    sns.heatmap(heatmap_data, cmap='coolwarm', annot=True, fmt="d", cbar=True)
-    plt.title('Failed Login Attempts by Time of Day and Day of Week')
-    plt.xlabel('Hour of Day')
-    plt.ylabel('Day of Week')
-
-    buffer = io.BytesIO()
-    plt.savefig(buffer, format='png')
-    buffer.seek(0)
-    plt.close()
-    return buffer
-
 
 
 ### ADMIN DASHBOARD .......
