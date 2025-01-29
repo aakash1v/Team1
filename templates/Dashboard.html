@@ -9,6 +9,10 @@
       rel="stylesheet"
     />
     <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }} "/>
+    <style>
+      
+      
+    </style>
   </head>
   <body>
     <div class="dashboard-container">
@@ -20,11 +24,29 @@
                   class="profile-pic"
               />
         <h1>AGILE PROJECT MANAGEMENT DASHBOARD</h1>
-        
       </div>
 
       <!-- Top Bar -->
       <div class="top-bar">
+        <!-- Search Bar -->
+        <div class="search-bar">
+          <input
+            type="text"
+            id="search-input"
+            placeholder="Search projects..."
+          />
+          <select id="search-filter">
+            <option value="project_name">Project Name</option>
+            <option value="product_manager">Product Manager</option>
+            <option value="start_date">Start Date</option>
+            <option value="end_date">End Date</option>
+            <option value="status">Status</option> 
+          </select>
+          <button id="search-btn">
+            <i class="fas fa-search"></i>
+          </button>
+        </div>
+
         <div class="greeting">
           <span>Hello, {{ user_name }}!</span>
 
@@ -57,21 +79,21 @@
           <div class="stat-card stat-total">
             <i class="fas fa-project-diagram"></i>
             <div class="stat-card-content">
-              <h3>Total Projects</h3>
+              <h2>Total Projects</h2>
               <h3 style="text-align: center">{{ total_projects }}</h3>
             </div>
           </div>
           <div class="stat-card stat-distribution">
             <i class="fas fa-chart-pie"></i>
             <div class="stat-card-content">
-              <h3>Active Projects</h3>
+              <h2>Active Projects</h2>
               <h3 style="text-align: center">{{ active_projects }}</h3>
             </div>
           </div>
           <div class="stat-card stat-completion">
             <i class="fas fa-check-circle"></i>
             <div class="stat-card-content">
-              <h3>On hold Projects</h3>
+              <h2>On hold Projects</h2>
               <h3 style="text-align: center">{{ on_hold_projects }}</h3>
             </div>
           </div>
@@ -105,7 +127,9 @@
                 <td>{{ project.start_date }}</td>
                 <td>{{ project.end_date }}</td>
                 <td>{{ project.revised_end_date }}</td>
-                <td>{{ project.status  }}</td>
+                <td><span class="status {% if project.status == 'Completed' %}completed{% elif project.status == 'On Hold' %}On-Hold{% else %}Active{% endif %}">
+                  {{ project.status }}
+              </span></td>
 
                 <td class="action-buttons">
                   {% if role in ["product owner", "scrum master", "team member"] %}
@@ -137,5 +161,27 @@
         </p>
       </div>
     </div>
+
+    <script>
+      document.getElementById('search-btn').addEventListener('click', function () {
+        const searchInput = document.getElementById('search-input').value.toLowerCase();
+        const filter = document.getElementById('search-filter').value;
+        const rows = document.querySelectorAll('.project-table tbody tr');
+
+        rows.forEach(row => {
+          const cell = row.querySelector(`td:nth-child(${filter === 'project_name' ? 1 : 
+            filter === 'product_manager' ? 2 : 
+            filter === 'start_date' ? 3 : 
+            filter === 'end_date' ? 4 : 
+            filter === 'status' ? 6 : 7})`);
+
+          if (cell && cell.textContent.toLowerCase().includes(searchInput)) {
+            row.style.display = '';
+          } else {
+            row.style.display = 'none';
+          }
+        });
+      });
+    </script>
   </body>
 </html>

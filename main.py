@@ -16,6 +16,10 @@ import io
 import traceback
 from email.message import EmailMessage
 import smtplib
+from email import encoders
+from email.mime.text import MIMEText
+from email.mime.base import MIMEBase
+from email.mime.multipart import MIMEMultipart
 # Import your models
 from models import (
     ProjectDetails,
@@ -26,19 +30,15 @@ from models import (
     SprintCalendar,
     Tasks,
     ScrumMasters,
-    Reports
+    Reports,
+    FrequencyEnum
 )
-from flask_cors import CORS
 
 # Import your blueprints
 #from routers.team1 import login_bp, login_manager
 from routers.team1 import login_bp, login_manager
 
 app = Flask(__name__)
-app = Flask(__name__)
-
-CORS(app)  # Enables CORS for all routes and origins
-
 login_manager.init_app(app)
 login_manager.login_view = "auth.login"
 
@@ -46,15 +46,12 @@ login_manager.login_view = "auth.login"
 # Configurations
 app.config["SECRET_KEY"] = "8BYkEfBA6O6donzWlSihBXox7C0sKR6b"
 app.config["SESSION_COOKIE_NAME"] = "your_session_cookie_name"
-
 app.config["SQLALCHEMY_DATABASE_URI"] = (
     f"sqlite:///{os.path.join(app.instance_path, 'global.db')}"
 )
 os.makedirs(app.instance_path, exist_ok=True)
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 # app.config["SQLALCHEMY_ECHO"] = True
-
-
 
 
 # Initialize extensions
@@ -69,21 +66,14 @@ with app.app_context():
 
 
 
-# @app.route("/")
-# def home():
-#     if not current_user.is_authenticated:
-#         return redirect(url_for("auth.login"))
-#     return jsonify({'home':'Our home page'})
-
-# Dashboard Logic
 user=''
 @app.route("/projects/<role>/<int:userid>")
 def projects(role,userid):
     projects_data = ProjectDetails.query.all()
     print(projects_data)
     total_projects = ProjectDetails.query.count()
-    active_projects = ProjectDetails.query.filter_by(Status="active").count()
-    on_hold_projects = ProjectDetails.query.filter_by(Status="on-hold").count()
+    active_projects = ProjectDetails.query.filter_by(Status="Active").count()
+    on_hold_projects = ProjectDetails.query.filter_by(Status="On Hold").count()
     user = Users.query.filter_by(UserID=userid).first().Name
 
     projects = [
@@ -344,10 +334,10 @@ def edit_project(project_id):
                         f"moscow_{user_story_index+1}_{user_story_index}", ""
                     ).strip()
                     if moscow not in [
-                        "must-have",
-                        "should-have",
-                        "could-have",
-                        "won't-have",
+                        "Must Have",
+                        "Should Have",
+                        "Could Have",
+                        "Won't Have",
                     ]:
                         flash(
                             f"Invalid MOSCOW value for User Story {user_story_index+1} in Sprint {index+1}.",
@@ -368,7 +358,7 @@ def edit_project(project_id):
                     status = request.form.get(
                         f"status_{user_story_index+1}_{user_story_index}", ""
                     ).strip()
-                    if status not in ["not-started", "in-progress", "completed"]:
+                    if status not in ["Not Started", "In Progress", "Completed"]:
                         flash(
                             f"Invalid status for User Story {user_story_index+1} in Sprint {index+1}.",
                             "error",
@@ -453,6 +443,13 @@ def chart_data():
         scrum_masters = ScrumMasters.query.all()
         tasks = Tasks.query.all()
 
+        task_status = [{
+            "total": len(tasks),
+            "completed": (sum(1 for t in tasks if t.TaskStatus == "Completed")),
+            "in_progress": sum(1 for t in tasks if t.TaskStatus == "In Progress"),
+            "pending": sum(1 for t in tasks if t.TaskStatus == "Not Started")
+        }]
+
         # Prepare data for charts
         sprint_data = [{
             "sprintNo": sprint.SprintNo,
@@ -460,15 +457,6 @@ def chart_data():
             "estimatedEffort": sprint.Velocity,
             "actualEffort": sprint.Velocity * 0.85
         } for sprint in sprints]
-
-        project_status = {
-            "labels": ["Completed", "Active", "Pending"],
-            "data": [
-                sum(1 for p in projects if p.Status == "Completed"),
-                sum(1 for p in projects if p.Status == "Active"),
-                sum(1 for p in projects if p.Status == "Pending")
-            ]
-        }
 
         sprint_progress = [{
             "sprintNo": sprint.SprintNo,
@@ -480,22 +468,38 @@ def chart_data():
                          else 0)
         } for sprint in sprints]
 
+  # Updated team_performance logic based on the new requirements
         team_performance = [{
-            "team": sm.Name,
-            "completedTasks": len([t for t in tasks
-                                   if t.UserStoryID in [us.UserStoryID for us in user_stories
-                                                        if us.SprintId in [s.SprintId for s in sm.sprints]]
-                                   and t.TaskStatus == "Completed"]),
-            "completedStories": len([us for us in user_stories
-                                     if us.SprintId in [s.SprintId for s in sm.sprints]
-                                     and us.Status == "Completed"])
-        } for sm in scrum_masters]
+            "team": f"Team {i + 1}",
+            "completedTasks": db.session.query(Tasks)
+            .filter(Tasks.AssignedUserID == Users.UserID,  # Join Tasks with Users
+                    # Match Users.Name with Assignee
+                    Users.Name == assignee[0],
+                    Tasks.TaskStatus == 'Completed') \
+            .count(),
+            "completedStories": db.session.query(UserStories)
+            .filter(UserStories.Assignee == assignee[0],  # Match Assignee
+                    UserStories.Status == 'Completed') \
+            .count(),
+            "averagePerformance": (
+                db.session.query(Tasks)
+                .filter(Tasks.AssignedUserID == Users.UserID,
+                        Users.Name == assignee[0],
+                        Tasks.TaskStatus == 'Completed')
+                .count() +
+                db.session.query(UserStories)
+                .filter(UserStories.Assignee == assignee[0],
+                        UserStories.Status == 'Completed')
+                .count()
+            ) / 2
+        } for i, assignee in enumerate(db.session.query(UserStories.Assignee).distinct().all())]
 
+        # Keep the existing return format
         return jsonify({
             "sprintData": sprint_data,
-            "projectStatus": project_status,
             "sprintProgress": sprint_progress,
-            "teamPerformance": team_performance
+            "teamPerformance": team_performance,
+            "taskStatus": task_status
         })
 
     except Exception as e:
@@ -517,7 +521,7 @@ def summary():
             "total_projects": len(projects),
             "completed_projects": sum(1 for p in projects if p.Status == "Completed"),
             "active_projects": sum(1 for p in projects if p.Status == "Active"),
-            "pending_projects": sum(1 for p in projects if p.Status == "Pending")
+            "pending_projects": sum(1 for p in projects if p.Status == "Not Started")
         }
 
         # Aggregate sprint data
@@ -532,7 +536,7 @@ def summary():
             "total_user_stories": len(user_stories),
             "completed_stories": sum(1 for u in user_stories if u.Status == "Completed"),
             "in_progress_stories": sum(1 for u in user_stories if u.Status == "In Progress"),
-            "pending_stories": sum(1 for u in user_stories if u.Status == "Pending")
+            "pending_stories": sum(1 for u in user_stories if u.Status == "Not Started")
         }
 
         # Aggregate task data
@@ -540,7 +544,7 @@ def summary():
             "total_tasks": len(tasks),
             "completed_tasks": sum(1 for t in tasks if t.TaskStatus == "Completed"),
             "in_progress_tasks": sum(1 for t in tasks if t.TaskStatus == "In Progress"),
-            "pending_tasks": sum(1 for t in tasks if t.TaskStatus == "Pending")
+            "pending_tasks": sum(1 for t in tasks if t.TaskStatus == "Not Started")
         }
 
         # Combine all summaries
@@ -551,7 +555,7 @@ def summary():
             "tasks": task_summary
         }
 
-        return render_template("summary.html",user_name=session['username'], summary_data=summary_data)
+        return render_template("summary.html",user_name=session['username'] ,summary_data=summary_data)
 
     except Exception as e:
         return f"An error occurred while fetching the summary: {e}", 500
@@ -559,7 +563,13 @@ def summary():
 
 @app.route('/export-pdf')
 def export_pdf():
-    return generate_pdf()
+    pdf_data = generate_pdf()
+    return send_file(
+        BytesIO(pdf_data),
+        as_attachment=True,
+        download_name=f'agile_dashboard_report_{datetime.now().strftime("%Y%m%d")}.pdf',
+        mimetype='application/pdf'
+    )
 
 @app.route('/generate-pdf')
 def generate_pdf():
@@ -587,7 +597,7 @@ def generate_pdf():
             "total": len(projects),
             "completed": sum(1 for p in projects if p.Status == "Completed"),
             "active": sum(1 for p in projects if p.Status == "Active"),
-            "pending": sum(1 for p in projects if p.Status == "Pending")
+            "pending": sum(1 for p in projects if p.Status == "Not Started")
         }
 
         sprint_summary = {
@@ -600,14 +610,14 @@ def generate_pdf():
             "total": len(user_stories),
             "completed": sum(1 for u in user_stories if u.Status == "Completed"),
             "in_progress": sum(1 for u in user_stories if u.Status == "In Progress"),
-            "pending": sum(1 for u in user_stories if u.Status == "Pending")
+            "pending": sum(1 for u in user_stories if u.Status == "Not Started")
         }
 
         task_summary = {
             "total": len(tasks),
             "completed": sum(1 for t in tasks if t.TaskStatus == "Completed"),
             "in_progress": sum(1 for t in tasks if t.TaskStatus == "In Progress"),
-            "pending": sum(1 for t in tasks if t.TaskStatus == "Pending")
+            "pending": sum(1 for t in tasks if t.TaskStatus == "Not Started")
         }
 
         # Initialize PDF
@@ -717,20 +727,17 @@ def generate_pdf():
         buffer.write(pdf_output)
         buffer.seek(0)
 
-        return send_file(
-            buffer,
-            as_attachment=True,
-            download_name=f'agile_dashboard_report_{datetime.now().strftime("%Y%m%d")}.pdf',
-            mimetype='application/pdf'
-        )
+        # Save and Return PDF
+        pdf_output = pdf.output(dest='S').encode('latin1')
+        return pdf_output
 
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
 
 def send_emails_to_users(email_list, project_name,proj_desc,roles):
-    sender_email = "sukheshdasari@gmail.com"
-    sender_password = "drer ssxn yxuk xwlz"  # Use your app password here
+    sender_email = "examplenamez543@gmail.com"
+    sender_password = "mfnppwcnqlmpzymc"  # Use your app password here
     subject = "Project Assignment Notification"
     
 
@@ -792,7 +799,7 @@ def submit_project_data():
 
         # Validate status
         print(data['status'])
-        if not data.get('status') or data['status'] not in ['active', 'completed','in-progress','cancelled','on-hold']:
+        if not data.get('status') or data['status'] not in ['Active', 'Completed','In Progress','Cancelled','On Hold']:
             raise Exception("Status must be either 'active', 'completed','in-progress','cancelled'.")
 
         # Add Project
@@ -884,7 +891,7 @@ def submit_project_data():
                     raise Exception(f"Sprint {i}, Story {j}: MOSCOW must be one of 'must-have', 'should-have', 'could-have', 'won’t-have'.")
                 if not story.get('assignee') or len(story['assignee'].strip()) == 0:
                     raise Exception(f"Sprint {i}, Story {j}: Assignee is required.")
-                if not story.get('status') or story['status'] not in ['in-progress', 'completed', 'not-started']:
+                if not story.get('status') or story['status'] not in ['In Progress', 'Completed', 'Not Started']:
                     raise Exception(f"Sprint {i}, Story {j}: Status must be 'in-progress', 'completed', or 'not-started'.")
 
                 last_sprint = SprintCalendar.query.order_by(SprintCalendar.SprintId.desc()).first()
@@ -925,6 +932,113 @@ def submit_project_data():
 @app.route('/')
 def new_home():
     return redirect(url_for('auth.login'))
+
+def send_email_with_report(report_type, file_path):
+    try:
+        # Email configuration
+        sender_email = "examplenamez543@gmail.com"
+        # Use an app-specific password if necessary
+        sender_password = "mfnppwcnqlmpzymc"
+        recipient_email = "vanshgosavi7@gmail.com"
+
+        # Get the report file based on the provided file_path
+        latest_report = file_path
+
+        # Get current date and time
+        current_datetime = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+        # Include date and time in the subject
+        subject = f"{report_type} Report - {current_datetime}"
+        body = f"Hello,\n\nPlease find the attached {report_type.lower()} report.\n\nBest regards,\nAgile Dashboard Team"
+
+        # Create the email
+        msg = MIMEMultipart()
+        msg['From'] = sender_email
+        msg['To'] = recipient_email
+        msg['Subject'] = subject
+
+        msg.attach(MIMEText(body, 'plain'))
+        with open(latest_report, 'rb') as attachment:
+            part = MIMEBase('application', 'octet-stream')
+            part.set_payload(attachment.read())
+            encoders.encode_base64(part)
+            part.add_header(
+                'Content-Disposition',
+                f'attachment; filename={os.path.basename(latest_report)}'
+            )
+            msg.attach(part)
+
+        # Send the email
+        with smtplib.SMTP('smtp.gmail.com', 587) as server:
+            server.starttls()
+            server.login(sender_email, sender_password)
+            server.send_message(msg)
+            print(f"Email sent successfully with the report: {os.path.basename(latest_report)}")
+
+    except Exception as e:
+        print(f"An error occurred while sending the email: {e}")
+
+
+def schedule_reports():
+    while True:
+        schedule.run_pending()
+        time.sleep(1)
+
+def generate_scheduled_report(report_type):
+    try:
+        with app.app_context():
+            # Create reports directory if it doesn't exist
+            os.makedirs('reports', exist_ok=True)
+
+            # Generate the PDF
+            pdf_data = generate_pdf()
+
+            # Determine the file name and path
+            report_date = datetime.now().strftime("%Y%m%d_%H%M%S")
+            file_name = f'automated_report_{report_type}_{report_date}.pdf'
+            file_path = os.path.join('reports', file_name)
+
+            # Check for existing report to prevent duplicates
+            existing_report = Reports.query.filter_by(
+                Filename=file_name).first()
+            if existing_report:
+                print(
+                    f"Report {file_name} already exists. Skipping generation.")
+                return
+
+            # Save PDF to file
+            with open(file_path, 'wb') as f:
+                f.write(pdf_data)
+
+            # Store report record in database
+            new_report = Reports(
+                Filename=file_name,
+                Filepath=file_path,
+                Frequency=FrequencyEnum[report_type.upper()],
+                ProjectId=1  # You may want to pass this as a parameter
+            )
+            db.session.add(new_report)
+            db.session.commit()
+
+            print(f"{report_type.capitalize()} report generated and stored: {file_path}")
+            send_email_with_report(report_type.capitalize(), file_path)
+
+    except Exception as e:
+        print(f"An error occurred while generating the scheduled report: {e}")
+
+
+
+# Schedule automated reports
+schedule.every().day.at("18:29").do(lambda: generate_scheduled_report("daily")
+                                    if datetime.now().day != 1 and datetime.now().strftime('%A').lower() != "monday" else None)
+schedule.every().monday.at("00:00").do(
+    lambda: generate_scheduled_report("weekly"))
+schedule.every().day.at("18:37").do(lambda: generate_scheduled_report(
+    "monthly") if datetime.now().day == 1 else None)
+
+# Start the scheduler in a separate thread
+scheduler_thread = Thread(target=schedule_reports, daemon=True)
+scheduler_thread.start()
 
 
 

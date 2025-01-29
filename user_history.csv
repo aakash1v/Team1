@@ -17,21 +17,16 @@ User ID,Username,Role,Action,Timestamp,IP Address
 19,new,product owner,Logout,2025-01-28 00:44:55,127.0.0.1
 18,aakash,admin,Login,2025-01-28 14:20:00,127.0.0.1
 18,aakash,admin,Logout,2025-01-28 14:27:13,127.0.0.1
-18,aakash,admin,Login,2025-01-28 14:27:49,127.0.0.1
 18,aakash,admin,Login,2025-01-28 14:28:36,127.0.0.1
 18,aakash,admin,Logout,2025-01-28 14:29:49,127.0.0.1
 19,new,product owner,Login,2025-01-28 14:33:14,127.0.0.1
-19,new,product owner,Login,2025-01-28 14:36:28,127.0.0.1
-19,new,product owner,Login,2025-01-28 14:44:22,127.0.0.1
-19,new,product owner,Login,2025-01-28 14:44:37,127.0.0.1
 19,new,product owner,Logout,2025-01-28 14:45:00,127.0.0.1
 18,aakash,admin,Login,2025-01-28 14:45:30,127.0.0.1
 18,aakash,admin,Logout,2025-01-28 14:45:48,127.0.0.1
 18,aakash,admin,Login,2025-01-28 15:14:19,127.0.0.1
 18,aakash,admin,Logout,2025-01-28 15:14:40,127.0.0.1
-19,new,product owner,Login,2025-01-28 15:15:07,127.0.0.1
 19,new,product owner,Login,2025-01-28 15:15:18,127.0.0.1
 19,new,product owner,Logout,2025-01-28 15:15:58,127.0.0.1
-18,aakash,admin,Login,2025-01-28 15:33:50,127.0.0.1
-18,aakash,admin,Login,2025-01-28 15:34:05,127.0.0.1
-18,aakash,admin,Logout,2025-01-28 15:34:15,127.0.0.1
+19,new,product owner,Login,2025-01-29 22:02:01,127.0.0.1
+19,new,product owner,Logout,2025-01-29 22:35:08,127.0.0.1
+18,aakash,admin,Login,2025-01-29 22:37:52,127.0.0.1

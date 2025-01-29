@@ -297,8 +297,8 @@ def verify_otp():
 # OTP Resend
 @login_bp.route('/resend_otp', methods=['POST'])
 def resend_otp():
-    if 'user' in session:
-        username = session['user']
+    if 'username' in session:
+        username = session['username']
         user = Users.query.filter_by(UserName=username).first()
         if user:
             # Generate a new OTP
@@ -306,7 +306,7 @@ def resend_otp():
             sm.send_otp_email(user.Email, otp)
 
             session['otp'] = otp
-            session['otp_expiry'] = (datetime.now() + timedelta(minutes=2)).isoformat()
+            session['otp_expiry'] = (datetime.now() + timedelta(minutes=5)).isoformat()
             session['error_message'] = 'A new OTP has been sent to your email.'
         else:
             session['error_message'] = 'User not found. Please log in again.'
