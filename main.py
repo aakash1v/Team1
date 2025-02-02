@@ -1,25 +1,14 @@
 from flask import Flask, redirect, url_for, render_template, flash, jsonify, request, send_file, Response,session
-from flask_login import user_logged_in, user_logged_out, current_user
 from database import db 
 import os
-from datetime import datetime, date, timedelta
+from datetime import datetime
 import send_mail as sm
-import pandas as pd
-import matplotlib.pyplot as plt
-import base64
 from fpdf import FPDF
 import schedule
 import time
 from threading import Thread
 from io import BytesIO
-import io
 import traceback
-from email.message import EmailMessage
-import smtplib
-from email import encoders
-from email.mime.text import MIMEText
-from email.mime.base import MIMEBase
-from email.mime.multipart import MIMEMultipart
 # Import your models
 from models import (
     ProjectDetails,
@@ -64,6 +53,10 @@ app.register_blueprint(login_bp, url_prefix="/auth")
 with app.app_context():
     db.create_all()
 
+
+@app.route('/')
+def new_home():
+    return redirect(url_for('auth.login'))
 
 
 user=''
@@ -735,58 +728,13 @@ def generate_pdf():
         return jsonify({'error': str(e)}), 500
 
 
-def send_emails_to_users(email_list, project_name,proj_desc,roles):
-    sender_email = "examplenamez543@gmail.com"
-    sender_password = "mfnppwcnqlmpzymc"  # Use your app password here
-    subject = "Project Assignment Notification"
-    
-
-    try:
-        for recipient_email, role in zip(email_list, roles):
-            msg = EmailMessage()
-            body_template = (
-            f"Hello,\n\nYou have assigned {role},\n\n"
-            f"You have been assigned to a new project: {project_name}.\n"
-            "Please log in to the system for more details.\n\n"
-            f"Description of project:{proj_desc}\n\n"
-            "Regards,\nProject Management Team"
-            )
-            msg['From'] = sender_email
-            msg['To'] = recipient_email
-            msg['Subject'] = subject
-            msg.set_content(body_template)
-
-            with smtplib.SMTP('smtp.gmail.com', 587) as server:
-                server.starttls()
-                server.login(sender_email, sender_password)
-                server.send_message(msg)
-
-            print(f"Email sent to {recipient_email}!")
-
-    except Exception as e:
-        print(f"Failed to send email: {e}")
-
-
 @app.route('/submit', methods=['POST'])
 def submit_project_data():
     try:
         data = request.json
+        print(data)
 
-        # Validate required fields for the project
-        if not data:
-            raise Exception("No data received.")
-        if not data.get('product_owner_id'):
-            raise Exception("Product Owner ID is required.")
-        if not isinstance(int(data['product_owner_id']), int):
-            raise Exception("Product Owner ID must be an integer.")
-        if not data.get('project_name') or len(data['project_name'].strip()) == 0:
-            raise Exception("Project Name is required.")
-        if not data.get('project_description') or len(data['project_description'].strip()) == 0:
-            raise Exception("Project Description is required.")
-        if not data.get('start_date') or not data.get('end_date'):
-            raise Exception("Start Date and End Date are required.")
-        product_owner = ProductOwner.query.get(data['product_owner_id'])
-        # Validate and parse dates
+        # Convert date strings to Python datetime.date objects
         start_date = datetime.strptime(data['start_date'], '%Y-%m-%d').date()
         end_date = datetime.strptime(data['end_date'], '%Y-%m-%d').date()
         revised_end_date = (
@@ -794,33 +742,23 @@ def submit_project_data():
             if data.get('revised_end_date')
             else None
         )
-        if start_date >= end_date:
-            raise Exception("Start Date cannot be greater than or equal to End Date.")
-
-        # Validate status
-        print(data['status'])
-        if not data.get('status') or data['status'] not in ['Active', 'Completed','In Progress','Cancelled','On Hold']:
-            raise Exception("Status must be either 'active', 'completed','in-progress','cancelled'.")
-
+        product_owner = ProductOwner.query.get(data['product_owner_id'])
         # Add Project
         new_project = ProjectDetails(
-            ProductOwnerId=int(data['product_owner_id']),
-            ProjectName=data['project_name'],
-            ProjectDescription=data['project_description'],
-            StartDate=start_date,
-            EndDate=end_date,
-            RevisedEndDate=revised_end_date,
-            Status=data['status']
+            ProductOwnerId = data['product_owner_id'],
+            ProjectName = data['project_name'],
+            ProjectDescription = data['project_description'],
+            StartDate = start_date,
+            EndDate = end_date,
+            RevisedEndDate = revised_end_date,
+            Status = data['status']
         )
         db.session.add(new_project)
         db.session.commit()
-        print("1st successful")
-
-        # Fetch last project ID
+        print("1st successfull")
         last_project = ProjectDetails.query.order_by(ProjectDetails.ProjectId.desc()).first()
         last_project_id = last_project.ProjectId if last_project else None
 
-        # Validate and add selected users
         selected_user_ids = data.get('selected_user_ids', '').split(',')
         if not selected_user_ids:
             raise Exception("At least one user must be selected.")
@@ -843,82 +781,55 @@ def submit_project_data():
             db.session.add(new_project_user)
 
         # Send emails to product owner and team members
-        send_emails_to_users(
+        sm.send_proj_assign_info(
             [product_owner.Email] + user_emails,
             data['project_name'],
             data['project_description'],
             ["Product Owner"] + ["Team Member"] * len(user_emails)
         )
-
-        # Validate and add sprints
-        if not data.get('sprints') or len(data['sprints']) == 0:
-            raise Exception("At least one sprint must be provided.")
-        for i, sprint in enumerate(data['sprints'], start=1):
+        
+        #sprint_no
+        i = 1
+        # Add Sprints and User Stories
+        for sprint in data['sprints']:
             sprint_start_date = datetime.strptime(sprint['start_date'], '%Y-%m-%d').date()
             sprint_end_date = datetime.strptime(sprint['end_date'], '%Y-%m-%d').date()
-            if sprint_start_date >= sprint_end_date:
-                raise Exception(f"Sprint {i}: Start Date cannot be greater than or equal to End Date.")
-            if not sprint.get('scrum_master_id') or not isinstance(int(sprint['scrum_master_id']), int):
-                raise Exception(f"Sprint {i}: Scrum Master ID must be provided and must be an integer.")
-            if not sprint.get('velocity') or not isinstance(int(sprint['velocity']), int):
-                raise Exception(f"Sprint {i}: Velocity must be provided and must be an integer.")
+
+
 
             new_sprint = SprintCalendar(
-                ProjectId=last_project_id,
-                SprintNo=i,
-                ScrumMasterID=sprint['scrum_master_id'],
-                StartDate=sprint_start_date,
-                EndDate=sprint_end_date,
-                Velocity=sprint['velocity']
+                ProjectId = last_project_id,
+                SprintNo = i,
+                ScrumMasterID = sprint['scrum_master_id'],
+                StartDate = sprint_start_date,
+                EndDate = sprint_end_date,
+                Velocity = sprint['velocity']
+
             )
+            i+=1
             db.session.add(new_sprint)
             db.session.commit()
-            print("2nd successful")
+            print("2nd successfull")
 
-            # Validate and add user stories for the sprint
-            if not sprint.get('user_stories') or len(sprint['user_stories']) == 0:
-                raise Exception(f"Sprint {i}: At least one user story must be provided.")
-            for j, story in enumerate(sprint['user_stories'], start=1):
-                if not story.get('planned_sprint') or not isinstance(int(story['planned_sprint']), int):
-                    raise Exception(f"Sprint {i}, Story {j}: Planned Sprint must be provided and must be an integer.")
-                if not story.get('actual_sprint') or not isinstance(int(story['actual_sprint']), int):
-                    raise Exception(f"Sprint {i}, Story {j}: Actual Sprint must be provided and must be an integer.")
-                if not story.get('description') or len(story['description'].strip()) == 0:
-                    raise Exception(f"Sprint {i}, Story {j}: Description is required.")
-                if not story.get('story_points') or not isinstance(int(story['story_points']), int):
-                    raise Exception(f"Sprint {i}, Story {j}: Story Points must be provided and must be an integer.")
-                if story.get('moscow') not in ['must-have', 'should-have', 'could-have', 'won’t-have']:
-                    raise Exception(f"Sprint {i}, Story {j}: MOSCOW must be one of 'must-have', 'should-have', 'could-have', 'won’t-have'.")
-                if not story.get('assignee') or len(story['assignee'].strip()) == 0:
-                    raise Exception(f"Sprint {i}, Story {j}: Assignee is required.")
-                if not story.get('status') or story['status'] not in ['In Progress', 'Completed', 'Not Started']:
-                    raise Exception(f"Sprint {i}, Story {j}: Status must be 'in-progress', 'completed', or 'not-started'.")
-
+            for story in sprint['user_stories']:
                 last_sprint = SprintCalendar.query.order_by(SprintCalendar.SprintId.desc()).first()
                 last_sprint_id = last_sprint.SprintId if last_sprint else None
                 new_story = UserStories(
-                    ProjectId=last_project_id,
-                    SprintId=last_sprint_id,
-                    PlannedSprint=story['planned_sprint'],
-                    ActualSprint=story['actual_sprint'],
-                    Description=story['description'],
-                    StoryPoint=story['story_points'],
-                    MOSCOW=story['moscow'],
-                    Assignee=story['assignee'],
-                    Status=story['status']
+                        ProjectId = last_project_id,
+                        SprintId = last_sprint_id,
+                        PlannedSprint = story['planned_sprint'],
+                        ActualSprint = story['actual_sprint'],
+                        Description = story['description'],
+                        StoryPoint = story['story_points'],
+                        MOSCOW = story['moscow'],
+                        Assignee = story['assignee'],
+                        Status = story['status']
                 )
                 db.session.add(new_story)
                 db.session.commit()
-                print("3rd successful")
+                print("3rd successfull")
 
-        return jsonify({"message": "Project, sprints, and user stories added successfully."}), 201
-
-    except Exception as e:
-        db.session.rollback()
-        print("Full error traceback:")
-        traceback.print_exc()
-        return jsonify({"error": str(e)}), 400
-
+        return jsonify({"message": "Project, sprints, and user stories added successfully." , "redirect" : url_for('projects', role=session['role'], userid=session['uid'])}),201
 
     except Exception as e:
         db.session.rollback()
@@ -928,55 +839,6 @@ def submit_project_data():
 
 
 #### TEAM 4 CODE ....
-
-@app.route('/')
-def new_home():
-    return redirect(url_for('auth.login'))
-
-def send_email_with_report(report_type, file_path):
-    try:
-        # Email configuration
-        sender_email = "examplenamez543@gmail.com"
-        # Use an app-specific password if necessary
-        sender_password = "mfnppwcnqlmpzymc"
-        recipient_email = "vanshgosavi7@gmail.com"
-
-        # Get the report file based on the provided file_path
-        latest_report = file_path
-
-        # Get current date and time
-        current_datetime = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-
-        # Include date and time in the subject
-        subject = f"{report_type} Report - {current_datetime}"
-        body = f"Hello,\n\nPlease find the attached {report_type.lower()} report.\n\nBest regards,\nAgile Dashboard Team"
-
-        # Create the email
-        msg = MIMEMultipart()
-        msg['From'] = sender_email
-        msg['To'] = recipient_email
-        msg['Subject'] = subject
-
-        msg.attach(MIMEText(body, 'plain'))
-        with open(latest_report, 'rb') as attachment:
-            part = MIMEBase('application', 'octet-stream')
-            part.set_payload(attachment.read())
-            encoders.encode_base64(part)
-            part.add_header(
-                'Content-Disposition',
-                f'attachment; filename={os.path.basename(latest_report)}'
-            )
-            msg.attach(part)
-
-        # Send the email
-        with smtplib.SMTP('smtp.gmail.com', 587) as server:
-            server.starttls()
-            server.login(sender_email, sender_password)
-            server.send_message(msg)
-            print(f"Email sent successfully with the report: {os.path.basename(latest_report)}")
-
-    except Exception as e:
-        print(f"An error occurred while sending the email: {e}")
 
 
 def schedule_reports():
@@ -1021,7 +883,7 @@ def generate_scheduled_report(report_type):
             db.session.commit()
 
             print(f"{report_type.capitalize()} report generated and stored: {file_path}")
-            send_email_with_report(report_type.capitalize(), file_path)
+            sm.send_email_with_report(report_type.capitalize(), file_path)
 
     except Exception as e:
         print(f"An error occurred while generating the scheduled report: {e}")
@@ -1040,7 +902,6 @@ schedule.every().day.at("18:37").do(lambda: generate_scheduled_report(
 scheduler_thread = Thread(target=schedule_reports, daemon=True)
 scheduler_thread.start()
 
-
-
 if __name__ == "__main__":
-    app.run()
+    # app = create_app()
+    app.run(debug=True)

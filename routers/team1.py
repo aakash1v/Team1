@@ -383,7 +383,7 @@ def admin_dashboard():
     # print(current_user.Name)
     # Load data
     df = pd.read_csv('user_history.csv', on_bad_lines='skip')
-    failed_login_df = pd.read_csv('failed_login_history.csv', on_bad_lines='skip' ) # Skip problematic rows
+    failed_login_df = pd.read_csv('failed_login_history.csv', on_bad_lines='skip')  # Skip problematic rows
 
     # Convert Timestamp to datetime
     df['Timestamp'] = pd.to_datetime(df['Timestamp'])
@@ -399,20 +399,32 @@ def admin_dashboard():
     # Initialize empty list to store sessions
     sessions = []
     for idx, login_row in df_logins.iterrows():
-        # Find the first logout for the same user after the login time
-        possible_logouts = df_logouts[df_logouts['Timestamp'] > login_row['Timestamp']]
+        # Find logouts after this login within 60 minutes
+        possible_logouts = df_logouts[
+            (df_logouts['Username'] == login_row['Username']) & 
+            (df_logouts['Timestamp'] > login_row['Timestamp']) & 
+            (df_logouts['Timestamp'] <= login_row['Timestamp'] + pd.Timedelta(minutes=60))
+        ]
+        
         if not possible_logouts.empty:
+            # Get the first matching logout
             logout_row = possible_logouts.iloc[0]
-            sessions.append({
-                'User ID': login_row['User ID'],
-                'Username': login_row['Username'],
-                "Role": login_row["Role"],
-                'Timestamp_login': login_row['Timestamp'],
-                'Timestamp_logout': logout_row['Timestamp'],
-                'Duration_minutes': (logout_row['Timestamp'] - login_row['Timestamp']).total_seconds() / 60
-            })
-            # Remove this logout from df_logouts to avoid pairing it again
+            duration = (logout_row['Timestamp'] - login_row['Timestamp']).total_seconds() / 60
+            # Remove used logout to avoid duplicate pairing
             df_logouts = df_logouts[df_logouts['Timestamp'] != logout_row['Timestamp']]
+        else:
+            # No logout found within 60 minutes, set default duration to 5 minutes
+            logout_row = None
+            duration = 5
+
+        sessions.append({
+            'User ID': login_row['User ID'],
+            'Username': login_row['Username'],
+            "Role": login_row["Role"],
+            'Timestamp_login': login_row['Timestamp'],
+            'Timestamp_logout': logout_row['Timestamp'] if logout_row is not None else None,
+            'Duration_minutes': duration
+        })
 
     # Create DataFrame for sessions
     df_sessions = pd.DataFrame(sessions)
@@ -428,7 +440,6 @@ def admin_dashboard():
         color_discrete_sequence=custom_colors
     )
     bar_graph_html = bar_fig.to_html(full_html=False)
-
     # Pie Chart
     login_count = df[df.Action == 'Login']['Role'].value_counts()
     pie_fig = Figure()
