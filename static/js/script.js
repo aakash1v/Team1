@@ -212,10 +212,10 @@ function addUserStoryFields(sprintNum) {
 
                 <label for="moscow-${sprintNum}-${i}">MoSCoW</label>
                 <select id="moscow-${sprintNum}-${i}" name="moscow_${sprintNum}_${i}" required>
-                    <option value="must-have">Must Have</option>
-                    <option value="should-have">Should Have</option>
-                    <option value="could-have">Could Have</option>
-                    <option value="won't-have">Won't Have</option>
+                    <option value="Must Have">Must Have</option>
+                    <option value="Should Have">Should Have</option>
+                    <option value="Could Have">Could Have</option>
+                    <option value="Won't Have">Won't Have</option>
                 </select>
 
                 <label for="assignee-${sprintNum}-${i}">Assignee</label>
@@ -223,9 +223,9 @@ function addUserStoryFields(sprintNum) {
 
                 <label for="status-${sprintNum}-${i}">Status</label>
                 <select id="status-${sprintNum}-${i}" name="status_${sprintNum}_${i}" required>
-                    <option value="not-started">Not Started</option>
-                    <option value="in-progress">In Progress</option>
-                    <option value="completed">Completed</option>
+                    <option value="Not Started">Not Started</option>
+                    <option value="In Progress">In Progress</option>
+                    <option value="Completed">Completed</option>
                 </select>
             </div>
         `;

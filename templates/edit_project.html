@@ -70,10 +70,10 @@
 
                 <label for="status">Status</label>
                 <select id="status" name="status" required>
-                    <option value="active" {% if project['Status'] == 'active' %}selected{% endif %}>Active</option>
-                    <option value="on-hold" {% if project['Status'] == 'on-hold' %}selected{% endif %}>On Hold</option>
-                    <option value="completed" {% if project['Status'] == 'completed' %}selected{% endif %}>Completed</option>
-                    <option value="cancelled" {% if project['Status'] == 'cancelled' %}selected{% endif %}>Cancelled</option>
+                    <option value="Active" {% if project['Status'] == 'Active' %}selected{% endif %}>Active</option>
+                    <option value="On Hold" {% if project['Status'] == 'On Hold' %}selected{% endif %}>On Hold</option>
+                    <option value="Completed" {% if project['Status'] == 'Completed' %}selected{% endif %}>Completed</option>
+                    <option value="Cancelled" {% if project['Status'] == 'Cancelled' %}selected{% endif %}>Cancelled</option>
                 </select>
             </div>
 
@@ -128,10 +128,10 @@
 
                         <label for="moscow-{{ loop.index }}-{{ loop.index0 }}">MoSCoW</label>
                         <select id="moscow-{{ loop.index }}-{{ loop.index0 }}" name="moscow_{{ loop.index }}_{{ loop.index0 }}" required>
-                            <option value="must-have" {% if user_story['MOSCOW'] == 'must-have' %}selected{% endif %}>Must Have</option>
-                            <option value="should-have" {% if user_story['MOSCOW'] == 'should-have' %}selected{% endif %}>Should Have</option>
-                            <option value="could-have" {% if user_story['MOSCOW'] == 'could-have' %}selected{% endif %}>Could Have</option>
-                            <option value="won't-have" {% if user_story['MOSCOW'] == "won't-have" %}selected{% endif %}>Won't Have</option>
+                            <option value="Must Have" {% if user_story['MOSCOW'] == 'Must Have' %}selected{% endif %}>Must Have</option>
+                            <option value="Should Have" {% if user_story['MOSCOW'] == 'Should Have' %}selected{% endif %}>Should Have</option>
+                            <option value="Could Have" {% if user_story['MOSCOW'] == 'Could Have' %}selected{% endif %}>Could Have</option>
+                            <option value="Won't Have" {% if user_story['MOSCOW'] == "Won't Have" %}selected{% endif %}>Won't Have</option>
                         </select>
 
                         <label for="assignee-{{ loop.index }}-{{ loop.index0 }}">Assignee</label>
@@ -139,9 +139,9 @@
 
                         <label for="status-{{ loop.index }}-{{ loop.index0 }}">Status</label>
                         <select id="status-{{ loop.index }}-{{ loop.index0 }}" name="status_{{ loop.index }}_{{ loop.index0 }}" required>
-                            <option value="not-started" {% if user_story['Status'] == 'not-started' %}selected{% endif %}>Not Started</option>
-                            <option value="in-progress" {% if user_story['Status'] == 'in-progress' %}selected{% endif %}>In Progress</option>
-                            <option value="completed" {% if user_story['Status'] == 'completed' %}selected{% endif %}>Completed</option>
+                            <option value="Not Started" {% if user_story['Status'] == 'Not Started' %}selected{% endif %}>Not Started</option>
+                            <option value="In Progress" {% if user_story['Status'] == 'In Progress' %}selected{% endif %}>In Progress</option>
+                            <option value="Completed" {% if user_story['Status'] == 'Completed' %}selected{% endif %}>Completed</option>
                         </select>
                         {% endfor %}
                     </div>
