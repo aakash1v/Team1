@@ -571,9 +571,12 @@ def admin_dashboard():
         failed_attempts = f"""
         - Total failed login attempts: {total_failed_logins} ({failed_login_percentage:.2f}% of all actions)
         """
-        most_failed_user_id = "Unknown"
+        
         user = db.session.execute(db.select(Users).where(Users.UserName == most_failed_username)).scalar()
-        most_failed_user_id = user.UserID
+        if not user:
+            most_failed_user_id = "Unknown"
+        else:
+            most_failed_user_id = user.UserID
 
         if most_failed_user_id:
             failed_attempts += f"- User with most failed logins: {most_failed_username} (User ID: {most_failed_user_id}) with {most_failed_user_count} failures"
