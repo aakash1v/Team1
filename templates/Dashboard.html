@@ -127,7 +127,7 @@
                 <td>{{ project.start_date }}</td>
                 <td>{{ project.end_date }}</td>
                 <td>{{ project.revised_end_date }}</td>
-                <td><span class="status {% if project.status == 'Completed' %}Completed{% elif project.status == 'On Hold' %}On Hold{% else %}Active{% endif %}">
+                <td><span class="status {% if project.status == 'Completed' %}completed{% elif project.status == 'On Hold' %}On-Hold{% else %}Active{% endif %}">
                   {{ project.status }}
               </span></td>
 
