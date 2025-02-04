@@ -172,7 +172,7 @@ def send_email_with_report(report_type, file_path):
         # Email configuration
         sender_email = SENDER_EMAIL
         sender_password = SENDER_PASSWORD
-        recipient_email = "vanshgosavi7@gmail.com"
+        recipient_email = "examplenamez543@gmail.com"
 
         # Get the report file based on the provided file_path
         latest_report = file_path
