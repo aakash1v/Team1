@@ -5,23 +5,21 @@ import smtplib
 from email.mime.text import MIMEText
 from email.message import EmailMessage
 import os
-import smtplib
 from email import encoders
+from decouple import config
 
 
-# sender_email = "sukheshdasari@gmail.com"
-# sender_password = "drer ssxn yxuk xwlz"  
-SENDER_EMAIL = "examplenamez543@gmail.com"
-SENDER_PASSWORD = "mfnppwcnqlmpzymc"
+SENDER_EMAIL = config("SENDER_EMAIL")
+SENDER_PASSWORD = config("SENDER_PASSWORD")
+
 
 def send_otp_email(email, otp):
     subject = 'Your OTP Code'
     body = f'Your OTP code is: {otp}'
 
-    
     msg = MIMEText(body)
     msg['Subject'] = subject
-    msg['From'] = SENDER_EMAIL 
+    msg['From'] = SENDER_EMAIL
     msg['To'] = email
 
     try:
@@ -30,7 +28,8 @@ def send_otp_email(email, otp):
             server.sendmail(SENDER_EMAIL, email, msg.as_string())
     except Exception as e:
         print(f'Error sending email: {str(e)}')
-    
+
+
 def approval_status_mail(email, name):
     subject = f'Hi, {name}  '
     body = f'{name} , Your registration is not approved by Admin. \nWait till admin approval after that u can login to ur account.\n\nor u can contact admin...\nThank YOu..'
@@ -47,10 +46,13 @@ def approval_status_mail(email, name):
     except Exception as e:
         print(f'Error sending email: {str(e)}')
 
-#### Sending mail to admin ....
+# Sending mail to admin ....
+
+
 def sending_approval_req(admin, user):
     subject = f'A new user {user.Name} has signed up '
-    body = f'Hi {admin.Name},\nA new user {user.Name} with user id - {user.UserID} is signed up. \nPlease approve their registration so that he can access the Dashboard.'
+    body = f'Hi {admin.Name},\nA new user {user.Name} with user id - {
+        user.UserID} is signed up. \nPlease approve their registration so that he can access the Dashboard.'
 
     print(body)
     msg = MIMEText(body)
@@ -65,7 +67,9 @@ def sending_approval_req(admin, user):
     except Exception as e:
         print(f'Error sending email: {str(e)}')
 
-### USER deletion or approval..
+# USER deletion or approval..
+
+
 def user_deleted(email, user):
     subject = f'Hi, {user.UserName}  '
     body = f'{user.UserName} ,  \nYour ur registration is removed ...!!'
@@ -80,7 +84,8 @@ def user_deleted(email, user):
             server.login(SENDER_EMAIL, SENDER_PASSWORD)
             server.sendmail(SENDER_EMAIL, email, msg.as_string())
     except Exception as e:
-        print(f'Error sending email: {str(e)}') 
+        print(f'Error sending email: {str(e)}')
+
 
 def user_approved(email, user):
     subject = f'Hi, {user.UserName}  '
@@ -96,15 +101,14 @@ def user_approved(email, user):
             server.login(SENDER_EMAIL, SENDER_PASSWORD)
             server.sendmail(SENDER_EMAIL, email, msg.as_string())
     except Exception as e:
-        print(f'Error sending email: {str(e)}') 
+        print(f'Error sending email: {str(e)}')
 
 
-
-####  TEAM 2 ...
+# TEAM 2 ...
 
 def send_emails_to_users(email_list, project_name, proj_desc, roles):
-    sender_email = "sukheshdasari@gmail.com"
-    sender_password = "drerssxnyxukxwlz"  
+    sender_email = SENDER_EMAIL
+    sender_password = SENDER_PASSWORD
     subject = "Project Assignment Notification"
 
     try:
@@ -133,23 +137,22 @@ def send_emails_to_users(email_list, project_name, proj_desc, roles):
         print(f"Failed to send email: {e}")
 
 
-### Team 4
+# Team 4
 
-def send_proj_assign_info(email_list, project_name,proj_desc,roles):
+def send_proj_assign_info(email_list, project_name, proj_desc, roles):
     sender_email = SENDER_EMAIL
     sender_password = SENDER_PASSWORD
     subject = "Project Assignment Notification"
-    
 
     try:
         for recipient_email, role in zip(email_list, roles):
             msg = EmailMessage()
             body_template = (
-            f"Hello,\n\nYou have assigned {role},\n\n"
-            f"You have been assigned to a new project: {project_name}.\n"
-            "Please log in to the system for more details.\n\n"
-            f"Description of project:{proj_desc}\n\n"
-            "Regards,\nProject Management Team"
+                f"Hello,\n\nYou have assigned {role},\n\n"
+                f"You have been assigned to a new project: {project_name}.\n"
+                "Please log in to the system for more details.\n\n"
+                f"Description of project:{proj_desc}\n\n"
+                "Regards,\nProject Management Team"
             )
             msg['From'] = sender_email
             msg['To'] = recipient_email
@@ -182,7 +185,8 @@ def send_email_with_report(report_type, file_path):
 
         # Include date and time in the subject
         subject = f"{report_type} Report - {current_datetime}"
-        body = f"Hello,\n\nPlease find the attached {report_type.lower()} report.\n\nBest regards,\nAgile Dashboard Team"
+        body = f"Hello,\n\nPlease find the attached {
+            report_type.lower()} report.\n\nBest regards,\nAgile Dashboard Team"
 
         # Create the email
         msg = MIMEMultipart()
@@ -206,8 +210,8 @@ def send_email_with_report(report_type, file_path):
             server.starttls()
             server.login(sender_email, sender_password)
             server.send_message(msg)
-            print(f"Email sent successfully with the report: {os.path.basename(latest_report)}")
+            print(f"Email sent successfully with the report: {
+                  os.path.basename(latest_report)}")
 
     except Exception as e:
         print(f"An error occurred while sending the email: {e}")
-

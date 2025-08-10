@@ -1,5 +1,5 @@
-from flask import Flask, redirect, url_for, render_template, flash, jsonify, request, send_file, Response,session
-from database import db 
+from flask import Flask, redirect, url_for, render_template, flash, jsonify, request, send_file, session
+from database import db
 import os
 from datetime import datetime
 import send_mail as sm
@@ -9,6 +9,7 @@ import time
 from threading import Thread
 from io import BytesIO
 import traceback
+from decouple import config
 # Import your models
 from models import (
     ProjectDetails,
@@ -24,7 +25,7 @@ from models import (
 )
 
 # Import your blueprints
-#from routers.team1 import login_bp, login_manager
+# from routers.team1 import login_bp, login_manager
 from routers.team1 import login_bp, login_manager
 
 app = Flask(__name__)
@@ -33,7 +34,7 @@ login_manager.login_view = "auth.login"
 
 
 # Configurations
-app.config["SECRET_KEY"] = "8BYkEfBA6O6donzWlSihBXox7C0sKR6b"
+app.config["SECRET_KEY"] = config("SECRET_KEY")
 app.config["SESSION_COOKIE_NAME"] = "your_session_cookie_name"
 app.config["SQLALCHEMY_DATABASE_URI"] = (
     f"sqlite:///{os.path.join(app.instance_path, 'global.db')}"
@@ -59,9 +60,11 @@ def new_home():
     return redirect(url_for('auth.login'))
 
 
-user=''
+user = ''
+
+
 @app.route("/projects/<role>/<int:userid>")
-def projects(role,userid):
+def projects(role, userid):
     projects_data = ProjectDetails.query.all()
     print(projects_data)
     total_projects = ProjectDetails.query.count()
@@ -104,7 +107,8 @@ def get_product_owners():
 def scrumMasters():
     smasters = ScrumMasters.query.all()
     return jsonify(
-        [{"id": smaster.ScrumMasterID, "name": smaster.Name} for smaster in smasters]
+        [{"id": smaster.ScrumMasterID, "name": smaster.Name}
+            for smaster in smasters]
     )
 
 
@@ -116,7 +120,7 @@ def users():
 
 @app.route("/addproject")
 def addproject():
-    return render_template("addproject.html",user_name=session['username'],user_role=session['role'],user_id=session['uid'])
+    return render_template("addproject.html", user_name=session['username'], user_role=session['role'], user_id=session['uid'])
 
 
 def get_all_scrum_masters():
@@ -129,7 +133,8 @@ def edit_project(project_id):
     if request.method == "GET":
         try:
             # Fetch project details
-            project = ProjectDetails.query.filter_by(ProjectId=project_id).first()
+            project = ProjectDetails.query.filter_by(
+                ProjectId=project_id).first()
             scrum_masters = get_all_scrum_masters()
             print(scrum_masters)
             if not project:
@@ -144,7 +149,7 @@ def edit_project(project_id):
                 "StartDate": project.StartDate,
                 "EndDate": project.EndDate,
                 "RevisedEndDate": project.RevisedEndDate,
-                'Status':project.Status,
+                'Status': project.Status,
                 "sprints": [
                     {
                         "SprintId": sprint.SprintId,
@@ -169,7 +174,7 @@ def edit_project(project_id):
                     for sprint in project.sprints
                 ],
             }
-            print(session['role'],session['uid'])
+            print(session['role'], session['uid'])
 
             # Render form with pre-filled data
             return render_template(
@@ -196,7 +201,8 @@ def edit_project(project_id):
                 flash("Project Name is required.", "error")
                 return redirect(request.referrer)
 
-            project_description = request.form.get("project_description", "").strip()
+            project_description = request.form.get(
+                "project_description", "").strip()
             if not project_description:
                 flash("Project Description is required.", "error")
                 return redirect(request.referrer)
@@ -220,7 +226,7 @@ def edit_project(project_id):
                         "Revised End Date cannot be earlier than Start Date.", "error"
                     )
                     return redirect(request.referrer)
-                status=request.form.get('status')
+                status = request.form.get('status')
             except ValueError:
                 flash("Invalid date format. Use YYYY-MM-DD.", "error")
                 return redirect(request.referrer)
@@ -231,24 +237,28 @@ def edit_project(project_id):
             project.StartDate = start_date
             project.EndDate = end_date
             project.RevisedEndDate = revised_end_date
-            project.Status=status
+            project.Status = status
             db.session.commit()
 
             # Validate and update sprints
             for index, sprint in enumerate(project.sprints):
                 sprint_no = request.form.get(f"sprintNo_{index+1}")
                 if not sprint_no.isdigit():
-                    flash(f"Sprint No for Sprint {index+1} must be a number.", "error")
+                    flash(f"Sprint No for Sprint {
+                          index+1} must be a number.", "error")
                     return redirect(request.referrer)
 
-                scrum_master_id = request.form.get(f"scrum_master_id_{index+1}")
+                scrum_master_id = request.form.get(
+                    f"scrum_master_id_{index+1}")
                 if not scrum_master_id:
-                    flash(f"Scrum Master is required for Sprint {index+1}.", "error")
+                    flash(f"Scrum Master is required for Sprint {
+                          index+1}.", "error")
                     return redirect(request.referrer)
 
                 try:
                     sprint_start_date = datetime.strptime(
-                        request.form[f"sprint_start_date_{index+1}"], "%Y-%m-%d"
+                        request.form[f"sprint_start_date_{
+                            index+1}"], "%Y-%m-%d"
                     ).date()
                     sprint_end_date = datetime.strptime(
                         request.form[f"sprint_end_date_{index+1}"], "%Y-%m-%d"
@@ -256,13 +266,15 @@ def edit_project(project_id):
 
                     if sprint_end_date < sprint_start_date:
                         flash(
-                            f"End Date cannot be earlier than Start Date for Sprint {index+1}.",
+                            f"End Date cannot be earlier than Start Date for Sprint {
+                                index+1}.",
                             "error",
                         )
                         return redirect(request.referrer)
                 except ValueError:
                     flash(
-                        f"Invalid date format for Sprint {index+1}. Use YYYY-MM-DD.",
+                        f"Invalid date format for Sprint {
+                            index+1}. Use YYYY-MM-DD.",
                         "error",
                     )
                     return redirect(request.referrer)
@@ -270,7 +282,8 @@ def edit_project(project_id):
                 velocity = request.form.get(f"sprint_velocity_{index+1}")
                 if not velocity.isdigit() or int(velocity) <= 0:
                     flash(
-                        f"Velocity for Sprint {index+1} must be a positive number.",
+                        f"Velocity for Sprint {
+                            index+1} must be a positive number.",
                         "error",
                     )
                     return redirect(request.referrer)
@@ -284,31 +297,37 @@ def edit_project(project_id):
                 db.session.commit()
 
                 # Validate and update user stories
-                
+
                 # Validate and update user stories
                 print(sprint.user_stories)
                 for user_story_index, user_story in enumerate(sprint.user_stories):
-                    print(f"story_desc_{user_story_index+1}_{user_story_index}", "")
+                    print(f"story_desc_{user_story_index +
+                          1}_{user_story_index}", "")
                     user_story_description = request.form.get(
-                        f"story_desc_{user_story_index+1}_{user_story_index}", ""
+                        f"story_desc_{user_story_index +
+                                      1}_{user_story_index}", ""
                     ).strip()
                     if not user_story_description:
                         flash(
-                            f"Description is required for User Story {user_story_index+1} in Sprint {index+1}.",
+                            f"Description is required for User Story {
+                                user_story_index+1} in Sprint {index+1}.",
                             "error",
                         )
                         return redirect(request.referrer)
 
                     planned_sprint = request.form.get(
-                        f"planned_sprint_{user_story_index+1}_{user_story_index}"
+                        f"planned_sprint_{
+                            user_story_index+1}_{user_story_index}"
                     )
                     actual_sprint = request.form.get(
-                        f"actual_sprint_{user_story_index+1}_{user_story_index}"
+                        f"actual_sprint_{
+                            user_story_index+1}_{user_story_index}"
                     )
 
                     if not planned_sprint.isdigit() or not actual_sprint.isdigit():
                         flash(
-                            f"Planned and Actual Sprint for User Story {user_story_index+1} in Sprint {index+1} must be numbers.",
+                            f"Planned and Actual Sprint for User Story {
+                                user_story_index+1} in Sprint {index+1} must be numbers.",
                             "error",
                         )
                         return redirect(request.referrer)
@@ -318,7 +337,8 @@ def edit_project(project_id):
                     )
                     if not story_point.isdigit() or int(story_point) <= 0:
                         flash(
-                            f"Story Point for User Story {user_story_index+1} in Sprint {index+1} must be a positive number.",
+                            f"Story Point for User Story {
+                                user_story_index+1} in Sprint {index+1} must be a positive number.",
                             "error",
                         )
                         return redirect(request.referrer)
@@ -333,7 +353,8 @@ def edit_project(project_id):
                         "Won't Have",
                     ]:
                         flash(
-                            f"Invalid MOSCOW value for User Story {user_story_index+1} in Sprint {index+1}.",
+                            f"Invalid MOSCOW value for User Story {
+                                user_story_index+1} in Sprint {index+1}.",
                             "error",
                         )
                         return redirect(request.referrer)
@@ -343,7 +364,8 @@ def edit_project(project_id):
                     ).strip()
                     if not assignee:
                         flash(
-                            f"Assignee is required for User Story {user_story_index+1} in Sprint {index+1}.",
+                            f"Assignee is required for User Story {
+                                user_story_index+1} in Sprint {index+1}.",
                             "error",
                         )
                         return redirect(request.referrer)
@@ -353,7 +375,8 @@ def edit_project(project_id):
                     ).strip()
                     if status not in ["Not Started", "In Progress", "Completed"]:
                         flash(
-                            f"Invalid status for User Story {user_story_index+1} in Sprint {index+1}.",
+                            f"Invalid status for User Story {
+                                user_story_index+1} in Sprint {index+1}.",
                             "error",
                         )
                         return redirect(request.referrer)
@@ -380,12 +403,13 @@ def edit_project(project_id):
     )
 
 
-##### TEAM 3 ROUTES....
+# TEAM 3 ROUTES....
 
 @app.route('/viewproject/<int:project_id>', methods=['GET'])
 def viewproject(project_id):
     # Fetch project details using the passed project_id
-    project = ProjectDetails.query.filter_by(ProjectId=project_id).first()  # Fetch project details
+    project = ProjectDetails.query.filter_by(
+        ProjectId=project_id).first()  # Fetch project details
     if not project:
         # If the project is not found, handle the error (optional)
         return "Project not found", 404
@@ -400,7 +424,8 @@ def viewproject(project_id):
             "description": user_story.Description,
             "status": user_story.Status,
             "assignee": user_story.Assignee,
-            "sprint": f"Sprint {user_story.SprintId}"  # Assuming SprintId is used for sprint number
+            # Assuming SprintId is used for sprint number
+            "sprint": f"Sprint {user_story.SprintId}"
         }
         for user_story in userstories_data
     ]
@@ -409,7 +434,7 @@ def viewproject(project_id):
     sprints_data = SprintCalendar.query.filter_by(ProjectId=project_id).all()
 
     # Prepare the sprint calendar data for the template
-    sprintcalendar= [
+    sprintcalendar = [
         {
             "sprint_no": sprint.SprintId,
             "start_date": sprint.StartDate.strftime('%b %d, %Y'),
@@ -421,10 +446,10 @@ def viewproject(project_id):
 
     # Pass the project, user stories, and sprints to the template
 
-    #print(sprints)
+    # print(sprints)
     return render_template('view.html', userstories=userstories, project=project, sprints=sprintcalendar,
                            user_name=session['username'],
-                        )
+                           )
 
 
 @app.route('/api/chart-data')
@@ -468,11 +493,11 @@ def chart_data():
             .filter(Tasks.AssignedUserID == Users.UserID,  # Join Tasks with Users
                     # Match Users.Name with Assignee
                     Users.Name == assignee[0],
-                    Tasks.TaskStatus == 'Completed') \
+                    Tasks.TaskStatus == 'Completed')
             .count(),
             "completedStories": db.session.query(UserStories)
             .filter(UserStories.Assignee == assignee[0],  # Match Assignee
-                    UserStories.Status == 'Completed') \
+                    UserStories.Status == 'Completed')
             .count(),
             "averagePerformance": (
                 db.session.query(Tasks)
@@ -497,7 +522,6 @@ def chart_data():
 
     except Exception as e:
         return jsonify({'error': str(e)}), 500
-
 
 
 @app.route('/summary')
@@ -548,11 +572,11 @@ def summary():
             "tasks": task_summary
         }
 
-        return render_template("summary.html",user_name=session['username'] ,summary_data=summary_data)
+        return render_template("summary.html", user_name=session['username'], summary_data=summary_data)
 
     except Exception as e:
         return f"An error occurred while fetching the summary: {e}", 500
-    
+
 
 @app.route('/export-pdf')
 def export_pdf():
@@ -560,9 +584,11 @@ def export_pdf():
     return send_file(
         BytesIO(pdf_data),
         as_attachment=True,
-        download_name=f'agile_dashboard_report_{datetime.now().strftime("%Y%m%d")}.pdf',
+        download_name=f'agile_dashboard_report_{
+            datetime.now().strftime("%Y%m%d")}.pdf',
         mimetype='application/pdf'
     )
+
 
 @app.route('/generate-pdf')
 def generate_pdf():
@@ -628,7 +654,8 @@ def generate_pdf():
         pdf.cell(0, 20, 'Agile Project Management Dashboard', ln=True, align='C')
         pdf.set_font('Arial', 'I', 16)
         pdf.cell(0, 20, 'Comprehensive Agile Report', ln=True, align='C')
-        pdf.cell(0, 20, f"Generated on: {datetime.now().strftime('%B %d, %Y')}", ln=True, align='C')
+        pdf.cell(0, 20, f"Generated on: {
+                 datetime.now().strftime('%B %d, %Y')}", ln=True, align='C')
 
         # Introduction Page
         pdf.add_page()
@@ -745,24 +772,25 @@ def submit_project_data():
         product_owner = ProductOwner.query.get(data['product_owner_id'])
         # Add Project
         new_project = ProjectDetails(
-            ProductOwnerId = data['product_owner_id'],
-            ProjectName = data['project_name'],
-            ProjectDescription = data['project_description'],
-            StartDate = start_date,
-            EndDate = end_date,
-            RevisedEndDate = revised_end_date,
-            Status = data['status']
+            ProductOwnerId=data['product_owner_id'],
+            ProjectName=data['project_name'],
+            ProjectDescription=data['project_description'],
+            StartDate=start_date,
+            EndDate=end_date,
+            RevisedEndDate=revised_end_date,
+            Status=data['status']
         )
         db.session.add(new_project)
         db.session.commit()
         print("1st successfull")
-        last_project = ProjectDetails.query.order_by(ProjectDetails.ProjectId.desc()).first()
+        last_project = ProjectDetails.query.order_by(
+            ProjectDetails.ProjectId.desc()).first()
         last_project_id = last_project.ProjectId if last_project else None
 
         selected_user_ids = data.get('selected_user_ids', '').split(',')
         if not selected_user_ids:
             raise Exception("At least one user must be selected.")
-        
+
         user_emails = []
 
         for user_id in selected_user_ids:
@@ -787,49 +815,50 @@ def submit_project_data():
             data['project_description'],
             ["Product Owner"] + ["Team Member"] * len(user_emails)
         )
-        
-        #sprint_no
+
+        # sprint_no
         i = 1
         # Add Sprints and User Stories
         for sprint in data['sprints']:
-            sprint_start_date = datetime.strptime(sprint['start_date'], '%Y-%m-%d').date()
-            sprint_end_date = datetime.strptime(sprint['end_date'], '%Y-%m-%d').date()
-
-
+            sprint_start_date = datetime.strptime(
+                sprint['start_date'], '%Y-%m-%d').date()
+            sprint_end_date = datetime.strptime(
+                sprint['end_date'], '%Y-%m-%d').date()
 
             new_sprint = SprintCalendar(
-                ProjectId = last_project_id,
-                SprintNo = i,
-                ScrumMasterID = sprint['scrum_master_id'],
-                StartDate = sprint_start_date,
-                EndDate = sprint_end_date,
-                Velocity = sprint['velocity']
+                ProjectId=last_project_id,
+                SprintNo=i,
+                ScrumMasterID=sprint['scrum_master_id'],
+                StartDate=sprint_start_date,
+                EndDate=sprint_end_date,
+                Velocity=sprint['velocity']
 
             )
-            i+=1
+            i += 1
             db.session.add(new_sprint)
             db.session.commit()
             print("2nd successfull")
 
             for story in sprint['user_stories']:
-                last_sprint = SprintCalendar.query.order_by(SprintCalendar.SprintId.desc()).first()
+                last_sprint = SprintCalendar.query.order_by(
+                    SprintCalendar.SprintId.desc()).first()
                 last_sprint_id = last_sprint.SprintId if last_sprint else None
                 new_story = UserStories(
-                        ProjectId = last_project_id,
-                        SprintId = last_sprint_id,
-                        PlannedSprint = story['planned_sprint'],
-                        ActualSprint = story['actual_sprint'],
-                        Description = story['description'],
-                        StoryPoint = story['story_points'],
-                        MOSCOW = story['moscow'],
-                        Assignee = story['assignee'],
-                        Status = story['status']
+                    ProjectId=last_project_id,
+                    SprintId=last_sprint_id,
+                    PlannedSprint=story['planned_sprint'],
+                    ActualSprint=story['actual_sprint'],
+                    Description=story['description'],
+                    StoryPoint=story['story_points'],
+                    MOSCOW=story['moscow'],
+                    Assignee=story['assignee'],
+                    Status=story['status']
                 )
                 db.session.add(new_story)
                 db.session.commit()
                 print("3rd successfull")
 
-        return jsonify({"message": "Project, sprints, and user stories added successfully." , "redirect" : url_for('projects', role=session['role'], userid=session['uid'])}),201
+        return jsonify({"message": "Project, sprints, and user stories added successfully.", "redirect": url_for('projects', role=session['role'], userid=session['uid'])}), 201
 
     except Exception as e:
         db.session.rollback()
@@ -838,13 +867,14 @@ def submit_project_data():
         return jsonify({"error": str(e)}), 400
 
 
-#### TEAM 4 CODE ....
+# TEAM 4 CODE ....
 
 
 def schedule_reports():
     while True:
         schedule.run_pending()
         time.sleep(1)
+
 
 def generate_scheduled_report(report_type):
     try:
@@ -882,12 +912,12 @@ def generate_scheduled_report(report_type):
             db.session.add(new_report)
             db.session.commit()
 
-            print(f"{report_type.capitalize()} report generated and stored: {file_path}")
+            print(f"{report_type.capitalize()
+                     } report generated and stored: {file_path}")
             sm.send_email_with_report(report_type.capitalize(), file_path)
 
     except Exception as e:
         print(f"An error occurred while generating the scheduled report: {e}")
-
 
 
 # Schedule automated reports
